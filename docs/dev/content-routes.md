@@ -11,13 +11,11 @@
 - 未配置即立即返回 `None` 的源 (theporndb 无 token、r18dev 无 PG、official 前缀未命中) 可以垫后.
 - 会把无关番号拼成「看起来像详情页」的站不纳入默认表.
 
-iqqtv 作为有碼中文标题源时: 加入 **censored** 路由, 再在 `field_priority.title` 里提前; 默认不放入有碼, 否则每部有碼片都会请求中文站.
-
 ## 类型取舍
 
 | 类型 | 意图 | 不纳入默认表 |
 |------|------|----------|
-| censored | 中文索引 → FANZA 权威图文 → 稳定镜像 → 可空返回的官网 / r18 | 单厂牌 API (Prestige 等对每个候选 SKU 都请求); iqqtv (见上) |
+| censored | 中文索引 → FANZA 权威图文 → 稳定镜像 → 可空返回的官网 / r18 | 单厂牌 API (Prestige 等对每个候选 SKU 都请求); iqqtv (每部有碼片都会请求中文站; 需要时加入本路由再把 `field_priority.title` 提前) |
 | uncensored | 有独立无碼区的索引 + 无碼专站 | kin8 (从任意番号抽数字拼详情, 会误匹配) |
 | fc2 | javdb 分类 + 专用索引 + 官方电子市场 + BT 垫后 | fc2club (跳转镜像不稳定) |
 | chinese | 有國產区的中文站第一, 综合 / BT 兜底 | javdb 当第一源 |

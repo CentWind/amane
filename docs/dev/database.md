@@ -17,7 +17,7 @@ r18 库由项目导入 / 管理但 schema 不受我们控制, **不能纳入 Ale
 
 ## SQLite 选型
 
-目标用户是个人媒体库单机部署: 无需多进程并发写入, 零运维 (Docker 用户不必额外起数据库容器), 文件级备份方便. 已知约束是不支持部分 ALTER TABLE、写入排他锁、JSON 字段无法高效查询 — 个人规模可接受, 超过百万行需评估迁移到 PostgreSQL. 手工备份必须用 online backup, WAL 模式下不能只 `cp amane.db`.
+个人媒体库单机部署: 无需多进程并发写入, 零运维 (Docker 用户不必额外起数据库容器), 文件级备份方便. 已知约束是不支持部分 ALTER TABLE、写入排他锁、JSON 字段无法高效查询 — 个人规模可接受, 超过百万行需评估迁移到 PostgreSQL. 手工备份必须用 online backup, WAL 模式下不能只 `cp amane.db`.
 
 ## 启动期自动迁移与安全网
 
@@ -31,7 +31,7 @@ CLI (`uv run alembic …`) 使用同一套 `env.py` 事务性 DDL, 但**不会**
 
 SQLite 不能直接存储 Python `datetime`, 迁移回填中的裸 `INSERT` 须依赖 `sqlite_migrate` 在导入时注册的字符串转换, 否则会触发 Python 3.12 已弃用的默认转换.
 
-用户更新版本后**不需要手动迁移**; 启动失败时可用 `AMANE_DATA_DIR` 指向独立目录隔离, 或用最近的 `*.pre-migrate-*.bak` 恢复 (先停服务, 换回主库文件并删除 `-wal` / `-shm`), 或 `uv run alembic downgrade <rev>` (仅 schema 可逆时).
+用户更新版本后**不需要手动迁移**; 启动失败时可用 `AMANE_DATA_DIR` 指向独立目录隔离, 或用最近的 `*.pre-migrate-*.bak` 恢复 (先停服务, 换回主库文件并删除 `-wal` / `-shm`).
 
 ## Batch Mode
 
@@ -75,11 +75,10 @@ SQLite 没有原生 enum, 列仍是 VARCHAR. 不能使用 `Column(String)` 或 `
 
 | 场景 | 方式 | 原因 |
 |------|------|------|
-| 业务逻辑测试 | 文件 DB + `copy_schema()` (`schema_template.py`) | 快 (进程级模板, 避免重复跑全部 Alembic revision), 不依赖迁移历史 |
 | 迁移逻辑测试 | 临时文件 DB + `command.upgrade` | 测试「旧→新」路径 |
 | 备份 / 事务性 DDL | `tests/db/test_sqlite_migrate_safety.py` | WAL 一致备份、失败 revision 回滚、启动路径冒烟 |
 
-`schema_template.py` 在进程首次调用时构建已迁移的 SQLite 模板并 vacuum, 后续 `copy_schema()` 拷贝该文件, 因此测的是当前 schema 而非迁移路径; 用法与例外见 [testing.md](testing.md).
+业务逻辑测试与 `copy_schema` 的用法见 [testing.md](testing.md).
 
 ## 路径与配置
 
@@ -87,7 +86,4 @@ SQLite 没有原生 enum, 列仍是 VARCHAR. 不能使用 `Column(String)` 或 `
 
 ## 迁移工作流
 
-1. 修改 `src/amane/db/models.py`.
-2. `uv run alembic revision --autogenerate -m "描述"` (数据迁移用 `revision` 不加 `--autogenerate`), **绝对禁止手写 revision ID**.
-3. 审生成的脚本 — 重命名 / 特殊改动手补, 并补翻译之外的 data revision.
-4. `uv run alembic upgrade head` 本地验证 (或重启服务自动跑), 然后运行测试并提交迁移文件.
+修改 `src/amane/db/models.py` 后, 用 `uv run alembic revision --autogenerate -m "描述"` 生成 (数据迁移用 `revision` 不加 `--autogenerate`), **绝对禁止手写 revision ID**. 生成后审脚本 — 重命名 / 特殊改动手补, 并补翻译之外的 data revision. 最后 `uv run alembic upgrade head` 本地验证 (或重启服务自动跑), 运行测试并提交迁移文件.

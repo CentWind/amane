@@ -29,18 +29,7 @@ scrape 等 handler 只调用 `current()`; 其它代码仍可直接使用 `logger
 
 ## 任务目录布局
 
-```text
-task-{id}/
-  manifest.json
-  task.json
-  config.hot.json          # 任务相关 Hot 切片 (已脱敏)
-  .secrets.hot.json        # 仅当确有密钥时写入
-  summary.json             # 任务摘要: 资格站 / 调度顺序 / 站点结果表
-  raw_cache.json           # 可选
-  http/index.jsonl
-  http/bodies/{seq}.*
-  task.log
-```
+`task-{id}/` 内: `manifest.json`、`task.json`、`config.hot.json` (确有密钥时另写 `.secrets.hot.json`)、`summary.json`、可选 `raw_cache.json`、`http/index.jsonl` 与 `http/bodies/{seq}.*`、`task.log`.
 
 导出: `GET /api/tasks/{id}/record?include_secrets=false` → `task-{id}-record.zip`, 仅终态可导出. UI 摘要: `GET /api/tasks/{id}/report` 从 DB (`headline` / `metadata_id` / `actor_id`) 与 `summary.json` **投影**面向界面的结果 — outcomes 与 summary.json 是**同一结构** (`SiteOutcomeRecord`) 的不同序列化, 报告不读取 `http/`、不解析任何文本. 站点 outcomes **只对** SCRAPE / ACTOR_SCRAPE 有意义; 其它类型即使目录里有 `summary.json` 也投影为空. 出站 HTTP (含 ORGANIZE 缺资源时的 `acquire`) 只写入 `http/`, **不是**站点 outcome.
 
@@ -58,7 +47,7 @@ Feed 失败记在源的 `last_error`, 不写入站点 outcome 表.
 
 ### 站点结果单一导出
 
-站点级结果 (成功 / 失败 / 缓存命中) 是任务事实的一手结构化数据. `Recorder.record_site_outcome` 是落盘 API; **来源 fetch 的记账只发生在** `invoke_source` (`observability/source.py`): 有数据 → OK, `None` → `no_usable_metadata`, `SourceError` → 异常上的 `reason` / `http_status` / `detail`, 其它 `Exception` → `unexpected` (继续其它源). 响应结构不符合读模型属 `parse_error`, 必须抛 `SourceError` 并带字段路径; 返回 `None` 会被记成 `no_usable_metadata`, 具体原因随之丢失. 影片 `_fetch_one` 与演员 Handler 均经由它, 爬虫和插件不 import Recorder. 同站点多次上报按语义合并 (outcome 取更差), 已写入的 `reason` / `http_status` / `detail` 不被后续兜底覆盖. `FailureReason` 是封闭枚举 (`net/errors.py`, 与前端 i18n 对应), 自定义句子只写入 `detail`.
+站点级结果 (成功 / 失败 / 缓存命中) 是任务事实的一手结构化数据. `Recorder.record_site_outcome` 是落盘 API; **来源 fetch 的记账只发生在** `invoke_source` (`observability/source.py`): 有数据 → OK, `None` → `no_usable_metadata`, `SourceError` → 异常上的 `reason` / `http_status` / `detail`, 其它 `Exception` → `unexpected` (继续其它源). 响应结构不符合读模型属 `parse_error`, 必须抛 `SourceError` 并带字段路径; 返回 `None` 会被记成 `no_usable_metadata`, 具体原因随之丢失. 影片聚合与演员 Handler 均经由它, 爬虫和插件不 import Recorder. 同站点多次上报按语义合并 (outcome 取更差), 已写入的 `reason` / `http_status` / `detail` 不被后续兜底覆盖. `FailureReason` 是封闭枚举 (`net/errors.py`, 与前端 i18n 对应), 自定义句子只写入 `detail`.
 
 **新增字段时只修改一处**: 扩展 `SiteOutcomeRecord` 字段 → 上游上报点补参数 → summary.json / report / 前端同步获得, 无需跨层拼接字符串. SCRAPE 的 `config.hot.json` 含 `scraping` / `network` / `llm` / `r18` / `plugins`, 插件配置按字段名中的 `api_key` / `token` / `secret` / `password` / `cookie` / `credential` / `dsn` 规则脱敏.
 
@@ -79,13 +68,7 @@ Feed 失败记在源的 `last_error`, 不写入站点 outcome 表.
 
 ### 回放 CLI
 
-```bash
-just repro path/to/task-N
-just repro path/to/record.zip --online
-uv run python -m amane.observability path/to/record.zip
-```
-
-有 `http/` 且未 `--online` → Offline (`ReplayWebClient` + `ScrapeHandler`), 否则 Online. v1 仅 `type=scrape`, 回放只读取 `http/` 与 `task.json`, 不依赖站点结果结构化字段.
+经 `just repro` (或 `python -m amane.observability`) 回放: 有 `http/` 且未 `--online` 时走 Offline (`ReplayWebClient` + `ScrapeHandler`), 否则 Online. v1 仅 `type=scrape`, 只读取 `http/` 与 `task.json`, 不依赖站点结果结构化字段.
 
 ### 非目标 (v1)
 

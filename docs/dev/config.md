@@ -28,7 +28,7 @@ API 鉴权是冷配置: 中间件在请求路径上, 不能在进程内 rebuild 
 
 ```
 RateLimiters → WebClient → HttpClient → CrawlerFactory
-  → Handlers (含 Translator / R18ImportHandler) → AsyncWorker
+  → Handlers → AsyncWorker
   → PlaybackFactory (独立码流客户端)
   → AgentService.rebuild (仅换 Agent 工厂 / 缓存参数)
 ```
@@ -39,7 +39,7 @@ RateLimiters → WebClient → HttpClient → CrawlerFactory
 
 `watcher.use_polling` / `media_extensions` / `debounce_seconds` 在 `start_app` 构造时一次性注入, **不随 rebuild 更新**, 修改 TOML 后须重启; Library 级的 `automation` / `ingest` / `cloud_path` / 路径 / `trailer_pattern` 等由 libraries 路由热更新, 与这三项无关. 契约见 [watcher.md](watcher.md).
 
-旧 worker 在 rebuild 后被替换: 调用方必须排空旧 worker 再启动新的, 否则两个 worker 会同时认领任务. 新 worker 继承 pause. 配置 PATCH、插件启用 / 禁用、插件安装 / 卸载 / 重新扫描都经由 `AppRuntime.apply_rebuild()`, 串行化这段替换.
+旧 worker 在 rebuild 后被替换: 调用方必须排空旧 worker 再启动新的, 否则两个 worker 会同时认领任务. 配置 PATCH、插件启用 / 禁用、插件安装 / 卸载 / 重新扫描都经由 `AppRuntime.apply_rebuild()`, 串行化这段替换.
 
 **r18 只读引擎**: 只在 `hot.r18` 实际变化时重建. rebuild 是同步的, 无法 await 释放 asyncpg 连接池, 旧引擎暂存 `_old_r18_db`, 由 config 路由随后 `dispose_old_r18()` 异步关闭.
 

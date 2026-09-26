@@ -25,9 +25,7 @@
 
 `MediaFile` 与 `Metadata` 解耦: **Metadata 是一等公民** (用户直接管理的番号级条目), 有效性不依赖本地文件; `MediaFile` 是磁盘视频的索引, 能对应到某条 Metadata 时以多对一绑定 `metadata_id`. `metadata_id IS NULL` 的文件 (解析失败 / 尚未刮削) 与**没有任何 MediaFile 的 Metadata** (by-number 刮削、只囤元数据) 都是常态, 不是待清理的对象.
 
-文件相位 (`content_type` / `mosaic` / `has_subtitle` / `definition`) 是 **path 的投影**, 只落在 `MediaFile`: 创建与修改 path 时用同一次 `parse_file_info` 回填, 不纳入对外 PATCH; `cd` 只用于 ORGANIZE 分集配对, 不落库. `content_type` 是番号 / 目录的内容类型 (决定刮削路由), `mosaic` 是这份文件的马赛克标记 (有码 / 无码 / 破解 / 流出); 词表未命中时按内容类型兜底 (有码 → `censored`, 无码 → `uncensored`, 国产 / FC2 / 欧美保持空), 已有的破解 / 流出 / 无码标记不覆盖. 无码展示与筛选是 `mosaic=uncensored OR content_type=uncensored`. `ContentType.chinese` 是国产, 不是中字 — 中字只依据 `has_subtitle`. Metadata 列表的角标与筛选经由关联 EXISTS / 页级聚合 (`file_phase`): 任一挂载文件具备即亮, `definition` 取最高档; 没有挂载文件的 Metadata 不命中这些筛选. `{mosaic?}` 输出判定后的 mosaic, `{content_type}` 输出内容类型.
-
-ORGANIZE 复制到库路径的 poster / thumb 在 `watermark.enabled` 时按**源文件** FileInfo 叠 PNG 角标, 不修改 Resource 原图与 fanart; 尺寸与角位见 [config.md](config.md) `watermark`.
+文件相位 (`content_type` / `mosaic` / `has_subtitle` / `definition`) 是 **path 的投影**, 只落在 `MediaFile`: 创建与修改 path 时用同一次 `parse_file_info` 回填, 不纳入对外 PATCH; `cd` 只用于 ORGANIZE 分集配对, 不落库. `content_type` 是番号 / 目录的内容类型 (决定刮削路由), `mosaic` 是这份文件的马赛克标记 (有码 / 无码 / 破解 / 流出); 词表未命中时按内容类型兜底 (有码 → `censored`, 无码 → `uncensored`, 国产 / FC2 / 欧美保持空), 已有的破解 / 流出 / 无码标记不覆盖. 无码展示与筛选是 `mosaic=uncensored OR content_type=uncensored`. `ContentType.chinese` 是国产, 不是中字 — 中字只依据 `has_subtitle`. Metadata 列表的角标与筛选经由关联 EXISTS / 页级聚合 (`file_phase`): 任一挂载文件具备即亮, `definition` 取最高档; 没有挂载文件的 Metadata 不命中这些筛选. 模板占位符 `{mosaic?}` 输出判定后的 mosaic, `{content_type}` 输出内容类型.
 
 ## Library 归属
 
@@ -47,7 +45,7 @@ ORGANIZE 复制到库路径的 poster / thumb 在 `watermark.enabled` 时按**�
 | `scores` | `dict[site, score]` | 不同评分体系 (5 分 vs 100 分) 需保留来源供前端分列展示 |
 | `raw` | `{site: {field: value}}` 原始快照 | 支持离线重新聚合与站点级复用 (见 [task-system.md](task-system.md)) |
 
-长文本 (`plot` / 演员 `overview`) 存**纯文本**: 上游的 HTML 片段、HTML 实体、异体空白 (NBSP / 全角空格)、XML 非法字符在入库前由 `utils.text::normalize_long_text` 收成一种表示 — HTML 换行与段落变成 `\n` 与空行. 归一在两处发生且必须幂等: 聚合出口 (`aggregate/engine.py::_fetch_one`, 含快照复用分支) 与落库写入 (`db/repos/metadata.py` 的两个写方法, 覆盖 merge / REST PATCH / Agent 工具). 因此 `raw` 快照、merge 输入与库内值是同一份规范文本; 消费端 (NFO 写出、前端) 不识别 HTML. 存量行在下次写入时被清理.
+长文本 (`plot` / 演员 `overview`) 存**纯文本**: 上游的 HTML 片段、HTML 实体、异体空白 (NBSP / 全角空格)、XML 非法字符在入库前归一, HTML 换行与段落变成 `\n` 与空行. 归一必须幂等, 只在聚合出口与落库写入两处发生 (见 `utils/text.py`), 因此 `raw` 快照、merge 输入与库内值是同一份规范文本; 消费端 (NFO 写出、前端) 不识别 HTML. 存量行在下次写入时被清理.
 
 ### `field_sources`
 
@@ -105,9 +103,7 @@ PATCH 三态: **省略键** = 不更新 (`exclude_unset`); **显式值** = 写�
 
 `link_template` 为空则不创建链接, 非空时 ORGANIZE 在视频就位后按该模板写一条指向真实视频的入口 (`link_mode=strm` 写 `.strm`, `symlink` 做软链接). 链接必须在库外, 否则 REFRESH 会把入口再扫描为媒体. `.strm` 正文由库级 `strm_content_template` 决定 (空则写一行视频绝对路径); 模板引用 `{video_relpath}` 且整理后路径不在本库内时失败, 不写出错误正文. 默认附属模板用 `{link_dir}`, 因此填链接模板后 NFO / 海报自动跟随链接.
 
-模板语言在 `organize/template.py`, 只约束以下几点: 占位符分相位注入 (`metadata` → file 相位 → `apply_video` → `apply_link`), file 相位未检出是**空串**不是 `Unknown`; 渲染时把 `{title}` / `{actor}` 等分量截到 200 UTF-8 字节 (不切开多字节字符), 但不截断渲染后的路径分量; 可选组 `[...]` 内直接占位符全空则整段丢弃, 有一个非空时其余输出空串. 普通占位符缺失回退 `Unknown`.
-
-**逃逸防护**: 校验对渲染结果做 realpath (跟随符号链接). 相对模板的真实写出路径必须在本库内 (`ALLOW_ALL` 也不例外); 绝对模板 (含展开 `{video_dir}` / `{link_dir}` 后变绝对) 必须位于本库或 `safe_dirs` 内, 否则 `ValueError`. 返回路径与 `{video_dir}` 用字面绝对路径 (折叠 `..`, 不跟随链接), 库内某级目录项指向库外则拒绝. 多盘分存要求目标盘在 `safe_dirs` 内.
+模板语言在 `organize/template.py`, 只约束以下几点: 占位符分相位注入 (`metadata` → file 相位 → `apply_video` → `apply_link`), file 相位未检出是**空串**不是 `Unknown`; 渲染时把 `{title}` / `{actor}` 等分量截到 200 UTF-8 字节 (不切开多字节字符), 但不截断渲染后的路径分量; 可选组 `[...]` 内直接占位符全空则整段丢弃, 有一个非空时其余输出空串. 普通占位符缺失回退 `Unknown`. **逃逸防护**: 校验对渲染结果做 realpath (跟随符号链接), 相对模板的真实写出路径必须在本库内 (`ALLOW_ALL` 也不例外), 绝对模板必须位于本库或 `safe_dirs` 内, 否则 `ValueError`; 多盘分存要求目标盘在 `safe_dirs` 内. 细则见 `organize/path_templates.py`.
 
 ## Resource (一等存储, 非缓存)
 
@@ -115,11 +111,11 @@ PATCH 三态: **省略键** = 不更新 (`exclude_unset`); **显式值** = 写�
 
 `meta` (JSON, 默认 `{}`) 在派生 / 被处理资源上记录可逆来源与处理标记: 裁剪记 `{'op':'crop','src':源url,'args':str}`; 任意资源被超分后追加 `{'sr':{tool,model,scale}}` — 超分**就地覆盖**文件 (URL 不变), `'sr' in meta` 即去重依据.
 
-**一等存储, 按引用回收**: Resource 不是 LRU 缓存. 刮削换 URL / 修改裁剪参数后旧条目会留在库里, 直到 CLEANUP 的 `remove_unreferenced_resources` 扫描 Metadata 媒体 URL 字段并删除未引用项 (含派生). 要原始像素须 invalidate 重下 (就地超分后原像素不可恢复). 其它保留规则见 [task-system.md](task-system.md) CLEANUP. `content_hash` (SHA-256) 作完整性校验与 ETag, 约定见 [api.md](api.md).
+**一等存储, 按引用回收**: Resource 不是 LRU 缓存. 刮削换 URL / 修改裁剪参数后旧条目会留在库里, 直到 CLEANUP 的 `remove_unreferenced_resources` 删除未引用项 (含派生). 要原始像素须 invalidate 重下 (就地超分后原像素不可恢复). 其它保留规则见 [task-system.md](task-system.md) CLEANUP. `content_hash` (SHA-256) 作完整性校验与 ETag, 约定见 [api.md](api.md).
 
 ## 分类索引 (爬取侧投影)
 
-`Metadata` 上的 `actors` / `tags` / `directors` (JSON list) 与 `studio` / `publisher` / `series` (标量) **仍是刮削聚合、NFO、路径模板的真值来源**. 分类实体表 + 关联表是**查询投影**: `upsert_metadata` / `update_metadata` 写入后由 `_sync_metadata_facets` 重建 (按 name get-or-create; list 字段带 `position` 保序).
+`Metadata` 上的 `actors` / `tags` / `directors` (JSON list) 与 `studio` / `publisher` / `series` (标量) **仍是刮削聚合、NFO、路径模板的真值来源**. 分类实体表 + 关联表是**查询投影**: `upsert_metadata` / `update_metadata` 写入后重建 (按 name get-or-create; list 字段带 `position` 保序).
 
 写入时先清洗 `Metadata.actors` 的 `name(alias1, alias2)` 形式: 展示名留真值, 别名并入对应演员的 `ActorAlias` 行. 每个名字经 `resolve_actor_by_name` 解析 (展示名精确命中 → 别名唯一命中 → 歧义 / 无命中以名字本身为展示名新建实体), 因此站点给的**裸别名**会折到已认定演员, 不再另建重复实体; block 判定在解析前后各执行一次. 影片名单顺序由第一成功源锁定, 其后已抓源按展示名填空性别. 写入时若带 `FilmActor.gender`, 只对 `Actor.gender == unknown` 填空, 不覆盖已有值, 不写入 `field_sources`. `Metadata.actors` 存库始终是展示名, 站点 `raw` 快照保留原始带括号形式.
 
@@ -130,7 +126,7 @@ PATCH 三态: **省略键** = 不更新 (`exclude_unset`); **显式值** = 写�
 | `alias` | 源名映射到目标名; **表内保持单跳规范形** (写入时压缩入边, apply 不递归). 演员不使用该规则, 由 `ActorAlias` 行承担 |
 | `block` | 源名永久剔除; 指向该名的 alias 入边一并压成 block |
 
-规则在 `_sync_metadata_facets` 之前对六个分类真值字段执行 (不修改 `raw`); 演员只有 block 会命中. 目录 API 的 rename / merge 对非演员写 alias 并修改已有 Metadata, delete 写 block 后从真值剔除再删实体. `user_tag` 与刮削隔离, 硬删且不写入规则表. 名称大小写敏感, 与源站原样一致, 不做模糊合并. `Actor` / `Director` 为一等实体, 无影片关联时**不自动删除**, 用户显式删除时删除实体并写 block. 删 `Metadata` 时清理关联 / 评论 / 用户 tag 挂载, 人物与目录实体保留.
+规则在投影重建之前对六个分类真值字段执行 (不修改 `raw`); 演员只有 block 会命中. 目录 API 的 rename / merge 对非演员写 alias 并修改已有 Metadata, delete 写 block 后从真值剔除再删实体. `user_tag` 与刮削隔离, 硬删且不写入规则表. 名称大小写敏感, 与源站原样一致, 不做模糊合并. `Actor` / `Director` 为一等实体, 无影片关联时**不自动删除**, 用户显式删除时删除实体并写 block. 删 `Metadata` 时清理关联 / 评论 / 用户 tag 挂载, 人物与目录实体保留.
 
 ### 演员身份与人物元数据
 
@@ -152,9 +148,3 @@ PATCH 三态: **省略键** = 不更新 (`exclude_unset`); **显式值** = 写�
 ## 用户注解 (与爬取隔离)
 
 `UserTag` 经 `MetadataUserTag` / `ActorUserTag` 分别挂载到影片与演员, 两张关联表结构相同、均不保序; `Comment` 绑定于 Metadata. 挂载与卸载都只经批量端点, 语义见 [api.md](api.md). `FacetKind.USER_TAG` 的 count 恒为**关联 Metadata 数**, 演员挂载不参与 (与其它分类的 count 口径一致). 刮削路径**绝不触碰**这些表.
-
-## 当前限制
-
-- SQLite + batch mode 修改大表会重建表, 数百万行时耗时不可接受; 个人规模可接受, 超过须切换至 PostgreSQL.
-- `Task.payload` / `Task.result` 是 JSON dict, 无 schema 强制 — 由 handler 的 Pydantic 模型在反序列化时校验 (见 [task-system.md](task-system.md)).
-- `Schedule.payload` 存 `RoutineSubmission` 的 JSON; 不允许在线修改任务内容, 修改 type / payload 须删除后重建. 详见 [task-system.md](task-system.md).

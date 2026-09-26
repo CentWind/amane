@@ -33,7 +33,7 @@
 
 ## 启动编排
 
-入口是 `amane.server` (可编程 uvicorn), lifespan 调用 `start_app`; Docker CMD 与 `just start` 执行 `python -m amane.server`. PyInstaller 使用文件作为运行入口 (`scripts/pyinstaller_entry.py`), 必须使用绝对导入. `just dev` 使用 `uvicorn --reload`, 不启用监督.
+入口是 `amane.server` (可编程 uvicorn), lifespan 调用 `start_app`. `just dev` 使用 `uvicorn --reload`, 不启用监督; PyInstaller 使用文件作为运行入口, 必须使用绝对导入.
 
 顺序非常关键, 颠倒会拿到未初始化或无配置的对象:
 

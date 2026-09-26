@@ -33,14 +33,12 @@ ORGANIZE 只读取范围内的 `MediaFile` 行: 缺省为该库全部索引, 显
 - **筛选与 roots_only 正交**: `GET /tasks` 带 status / type 筛选时在 SQL 中匹配**全部**任务 (含子任务), 再 `DISTINCT COALESCE(root_task_id, id)` 还原链根行, 因此「父已 DONE、子排队中」时仍能看到父根行. 裸任务 (root 为空) 按自身 id 精确匹配.
 - **删除保护**: 待删集合里存在**不在该集合内的后裔**的节点跳过; 「清除已完成」遇到父 DONE、子有成有败时保留父节点作为链根.
 - **重试为独立再次运行**: `retry_tasks` 克隆为**无根裸任务**, 不继承原任务链归属, 完成后自成新链.
-- **树视图 API**: `GET /tasks/{id}/children` 返回直接子任务 (含出边 `link_key`); `GET /tasks?root_task_id=` 取整链. 前端嵌套列表树点击整行展开 / 收起. 批量操作经 `invalidateTaskQueries` 同时失效列表与 children (hey-api query key 是对象数组, 不是字符串前缀).
+- **树视图 API**: `GET /tasks/{id}/children` 返回直接子任务 (含出边 `link_key`); `GET /tasks?root_task_id=` 取整链. 批量操作须同时失效列表与 children (见 [frontend.md](frontend.md)).
 - 静态 continuation / on_failure / 多父 join 尚未实现, 见 `docs/roadmap.md`.
-
-源与模板 dest 已是同一文件时的碰撞规则见[落盘执行](#落盘执行).
 
 ## REFRESH 组合开关
 
-`RefreshPayload` (`handlers/models.py`) 把扫描与刮削拆成独立开关: `scan` 取 `add` (注册新文件) / `remove` (删失效记录), `scrape` 对指定 `MediaFileStatus` 派生 SCRAPE 任务, `use_cache` 是 `set[CacheKind]` (含 `metadata` 复用 per-site raw, 含 `trans` 复用译文缓存, 空集 = 全强制刷新). 落盘另交 ORGANIZE.
+`RefreshPayload` 的 `scan` / `scrape` / `use_cache` 取值语义见 `handlers/models.py`; 落盘另交 ORGANIZE.
 
 扫描遍历经由 `scan_library` (`@in_thread` glob / stat, 一次分类为跳过 / 回收 / 媒体), 与库内索引的差集在 Python 计算. 不允许将整棵树的路径放入 SQL `IN` / `NOT IN` — 按批拆分时 `NOT IN` 会把其它批里真实存在的文件误判为失效; 仅 `remove` 时对库内记录 `exists`, 不遍历磁盘树. fan-out 必须 `list_media_files(..., limit=None)`, 默认 50 是列表分页不是批量任务上限. `MediaFile.path` 的写入、按路径查找、有效 / 失效集合差一律 NFC, 从库内路径打开 / 判断存在 / 落盘必须经 `existing_disk_path`.
 
@@ -48,7 +46,7 @@ ORGANIZE 只读取范围内的 `MediaFile` 行: 缺省为该库全部索引, 显
 
 ## 站点级复用
 
-SCRAPE **没有**「缓存命中即整体跳过爬取」的快速返回 — 完全不联网的纯整理由 ORGANIZE 承担. 它总是进入聚合, 但当 `CacheKind.metadata ∈ use_cache` 时把 `Metadata.raw` 作为 `cache` 传入, `_fetch_one` 在请求某站前按 `cache_key` (`site` 或 `site:lang`) 查快照, 命中即还原并跳过爬虫调用, 仅缺失 / 失败站点真正发起请求. 不含 `metadata` 时全部站点强制重爬; 不含 `trans` 时跳过译文缓存读取 (仍写入), 见 [llm.md](llm.md). 复用与新结果统一写入 `fetched`, 输出 `raw` 为两者合并; 快照含非法字段时降级为正常 fetch.
+SCRAPE **没有**「缓存命中即整体跳过爬取」的快速返回 — 完全不联网的纯整理由 ORGANIZE 承担. 它总是进入聚合, 但当 `CacheKind.metadata ∈ use_cache` 时把 `Metadata.raw` 作为 `cache` 传入, 请求某站前按 `cache_key` (`site` 或 `site:lang`) 查快照, 命中即还原并跳过爬虫调用, 仅缺失 / 失败站点真正发起请求. 不含 `metadata` 时全部站点强制重爬; 不含 `trans` 时跳过译文缓存读取 (仍写入), 见 [llm.md](llm.md). 复用与新结果统一写入 `fetched`, 输出 `raw` 为两者合并; 快照含非法字段时降级为正常 fetch.
 
 ## 字段级多源聚合
 
@@ -67,8 +65,6 @@ SCRAPE **没有**「缓存命中即整体跳过爬取」的快速返回 — 完�
 ### 进度上报
 
 Worker 在 `handle()` 前注入 `report_progress` 回调, 经 EventBus 发 `task.progress` (`{task_id, current, total, message}`); 前端写 `web/src/stores/progress.ts`. **契约**: `total > 0` 时前端按 `current/total` 显示百分比, 未上报则回退 indeterminate, Handler 不调用时静默忽略.
-
-SCRAPE 的分母 = 标量字段数 + 2 (`materialize` / `persist`), 聚合按波次上报已满足标量字段数 (聚合类不计入), message 为当波站点 `cache_key`. ORGANIZE 先按本次读到的条数上报失效索引与回收站行, 再按有效行落盘 (message 为文件名). TRASH 在 glob 进行中 `total=0`, 随后按待回收文件数上报.
 
 ### 站点结果上报
 
@@ -94,7 +90,7 @@ handler 之间复用的阶段逻辑, 不是一条可跳步的总管线:
 
 `execute_file_operations` 是落盘执行单元, 仅 ORGANIZE 经 `apply_file_operations` 调用. 不变量:
 
-- **整理 = 复制到库路径**: 优先用 Resource 已有文件, 缺失才现场 `acquire`; 复制哪些类型由 `Library.copy_resources` (或 payload 覆盖) 决定, 不由 `scraping.download_resources` 控制.
+- **整理 = 复制到库路径**: 优先用 Resource 已有文件, 缺失才现场 `acquire`; 复制哪些类型由 `Library.copy_resources` (或 payload 覆盖) 决定 (见 [data-model.md](data-model.md)).
 - **封面角标**: `watermark.enabled` 时 poster / thumb 副本按源文件 FileInfo 叠 PNG; Resource 原图与 fanart 不修改.
 - **海报缺失**: 按 `scraping.crop_poster` 从已落盘 thumb 裁剪兜底.
 - **已就位**: 源与模板 dest 已是同一文件 (含硬链同一 inode) 时视为成功, 不追加 `(1)`; 碰撞改名只用于 dest 被另一文件占用.
@@ -114,11 +110,11 @@ handler 之间复用的阶段逻辑, 不是一条可跳步的总管线:
 
 ## 图像超分
 
-超分只在两处发生, serve 永不触发: scrape 期急切 (`sr.enabled` 时对低质本地副本) 与 UPSCALE 任务 (扫描 Resource, 补 `'sr' not in meta` 的低质图). **就地覆盖**: 不产生新 URL, 直接覆盖磁盘文件并在 `meta` 打 `'sr'`, 前端零感知; 阈值纯函数 `needs_upscale`, 视频永不超分. 预设只暴露两个, 屏蔽工具 / 模型 / 倍率; 二进制按需下到 `{data_dir}/tools/`.
+超分只在两处发生, serve 永不触发: scrape 期急切 (`sr.enabled` 时对低质本地副本) 与 UPSCALE 任务 (扫描 Resource, 补 `'sr' not in meta` 的低质图). **就地覆盖**: 不产生新 URL, 直接覆盖磁盘文件并在 `meta` 打 `'sr'`, 前端零感知; 预设只暴露两个, 屏蔽工具 / 模型 / 倍率; 二进制按需下到 `{data_dir}/tools/`.
 
 ## Worker 并发
 
-并发上限 `worker.concurrency` (默认 10, 校验 1-64). 上限是经验值: curl_cffi 浏览器指纹 + 多站点并发下过高易触发反爬.
+并发上限 `worker.concurrency`. 上限是经验值: curl_cffi 浏览器指纹 + 多站点并发下过高易触发反爬.
 
 ### 暂停
 
@@ -138,17 +134,17 @@ handler 之间复用的阶段逻辑, 不是一条可跳步的总管线:
 
 ### 关闭
 
-`stop()` 先置 `_running=False` 并发停止信号, **等主循环自己退出, 不取消它** — 取消可能落在 claim 的 commit 之间, 事务不结束, SQLite 写锁会留在池里的连接上, 紧随的 `fail_all_running_tasks()` 会以 `database is locked` 超时 (Windows CI 上必现, POSIX 上未复现); 认领卡死超过兜底阈值才取消. 之后处置活跃任务 (handler 在 `handle()` 内直接写 repo, 立即取消同样可能打断其写事务): `worker.shutdown_timeout` (默认 `0`, 上限 120) 是等待活跃任务自然完成的秒数, `0` 表示立即超时并 cancel. 主循环若不被终止, 停在 DB 往返中的 claim 会在 `stop()` 返回后认领**之后**入队的任务, 因此 API 测试停 worker 必须在此语义下才不竞态.
+`stop()` 先置 `_running=False` 并发停止信号, **等主循环自己退出, 不取消它** — 取消可能落在 claim 的 commit 之间, 事务不结束, SQLite 写锁会留在池里的连接上, 紧随的 `fail_all_running_tasks()` 会以 `database is locked` 超时; 认领卡死超过兜底阈值才取消. 之后处置活跃任务 (handler 在 `handle()` 内直接写 repo, 立即取消同样可能打断其写事务): `worker.shutdown_timeout` 是等待活跃任务自然完成的秒数, `0` 表示立即超时并 cancel. 主循环若不被终止, 停在 DB 往返中的 claim 会在 `stop()` 返回后认领**之后**入队的任务, 因此 API 测试停 worker 必须在此语义下才不竞态.
 
 ## 即时提交与定时提交
 
 **即时** (`POST /tasks`): 接收 `TaskSubmission` (含全部即时 type), 经 `resolve_submission` 得到 `(TaskType, Payload)` 后建 Task. REFRESH / ORGANIZE / TRASH 只接受 `library_id`, resolve 时由 library 派生 `path` (submission 可显式覆盖) 与 `recursive` / `patterns`; ORGANIZE 还可带 `media_file_ids`, 与显式 `path` 互斥且不含扫描字段. SCRAPE 采用 number / media_id, 二者可同时提交; **`content_type` 可空**, 为空时仅 media_id 按文件路径解析, 有 number 时按番号推断. 覆盖只作用于这一次 `POST /tasks`. ACTOR_SCRAPE 采用 `actor_id`.
 
-**定时** (`Schedule`): 仅接受 `RoutineSubmission` (`cleanup` / `upscale` / `r18_import` / `rescrape`). 创建时把 submission 的 `model_dump(mode="json")` 写入 `Schedule.payload`; 列表 / 详情把该 JSON 校验回 `RoutineSubmission` (缺 `type` 用 `task_type`, 缺字段走模型默认值). 触发时由 `CronScheduler._execute_task` 用对应 Payload 的 `model_validate` 入队. 编辑只修改 name / cron / enabled.
+**定时** (`Schedule`): 仅接受 `RoutineSubmission` (`cleanup` / `upscale` / `r18_import` / `rescrape`). 触发时由 `CronScheduler` 用对应 Payload 的 `model_validate` 入队; 编辑只修改 name / cron / enabled, 修改任务类型或 payload 须删除后重建 (见 [api.md](api.md)).
 
 ## ACTOR_SCRAPE
 
-`ActorScrapeHandler` 按 `HotSettings.actor_scraping` 的档案站 / 头像站顺序抓取 (见 [config.md](config.md)), **先按 `Actor.gender` 与各站 `profile().genders` 过滤** (`unknown` 只请求同时覆盖两性的站; 被裁站不发 HTTP、不消费其 raw 缓存). 站点内按查找名首命中; 聚合是标量填空 (含 `gender`, `unknown` 当空) + 头像优先, 无影片字段 DAG. `use_cache` 与影片同型: 含 `metadata` 时按**已允许**站复用 `Actor.raw` 跳过爬虫 (非法快照降级为重爬). 写回时再与库内已有人物字段填空合并, 避免冲掉已填值. 可选 `download_images` 经 ResourceStore 缓存头像.
+`ActorScrapeHandler` 按 `HotSettings.actor_scraping` 的档案站 / 头像站顺序抓取 (见 [config.md](config.md)), **先按 `Actor.gender` 与各站 `profile().genders` 过滤** (`unknown` 只请求同时覆盖两性的站; 被裁站不发 HTTP、不消费其 raw 缓存). 站点内按查找名首命中; 聚合是标量填空 (含 `gender`, `unknown` 当空) + 头像优先, 无影片字段 DAG. `use_cache` 与影片同型: 含 `metadata` 时按**已允许**站复用 `Actor.raw` 跳过爬虫 (非法快照降级为重爬). 写回时再与库内已有人物字段填空合并, 避免冲掉已填值.
 
 **链式自动触发**: `actor_scraping.auto_scrape` 开启 (默认) 时, 影片 SCRAPE 成功后在 `ScrapeHandler` 末尾按清洗解析后的 `meta.actors` 查询 Actor 实体, **`Actor.raw` 非空 (已刮过) 则跳过**, 其余以 **`priority=-1`** 入队 (不抢占影片任务优先级); 同 `actor_id` 已有 queued / running 时复用入队互斥. 链式块内异常只记录 warning, 不阻断刮削主流程.
 
@@ -166,10 +162,6 @@ Metadata 是一等公民, CLEANUP **从不**因「无关联 MediaFile」删除 M
 
 **UPSCALE 例行任务**: 扫描全部 `Resource`, 对低质且未超分的就地超分, `limit` 限单次批量.
 
-**RESCRAPE (滚动补刮)**: 与 `RefreshHandler` 同构的 fan-out — 批量任务只选目标并下发既有刮削. `targets` (`metadata` / `actor`) 每个已选项各自按 `updated_at ASC` 取 `limit` 条 (可选 `min_age_days` 门槛), 以 `priority=-1` 入队非 force 任务. 复用 per-site raw 快照仅补缺失站点, 聚合阶段重放当前配置, 因此同时承担「配置变更后再次运行生效」; 它与 SCRAPE 成功后的链式 ACTOR_SCRAPE 正交 (链式跳过 `Actor.raw` 已非空的演员). **影片 content_type 不存表, 运行时推断**: 有挂载文件传路径, 无文件只传番号文本 (路径关键词类在无文件时不可推断).
+**RESCRAPE (滚动补刮)**: 与 `RefreshHandler` 同构的 fan-out — 批量任务只选目标并下发既有刮削. `targets` (`metadata` / `actor`) 每个已选项各自取一批旧条目, 以 `priority=-1` 入队非 force 任务 (见 `handlers/rescrape.py`). 复用 per-site raw 快照仅补缺失站点, 聚合阶段重放当前配置, 因此同时承担「配置变更后再次运行生效」; 它与 SCRAPE 成功后的链式 ACTOR_SCRAPE 正交 (链式跳过 `Actor.raw` 已非空的演员).
 
-Watcher 的三项 HotSettings (`use_polling` / `debounce_seconds` / `media_extensions`) 在进程启动时注入、**不随 rebuild 更新**, 与 Library 级的热更新字段分属两套, 见 [config.md](config.md). `automation` 的三档都不自动 ORGANIZE / TRASH; `ingest=clouddrive` 不挂 Observer, 见 [watcher.md](watcher.md).
-
-**归属随事件携带**: 每个监控根的 `_Handler` 绑定 `library_id`, 新文件以此入库 (见 [data-model.md](data-model.md)).
-
-删除事件一律按该库 `MediaFile.path` 前缀删除索引 (含路径自身), 不遍历磁盘; 未过防抖的创建 / 删除 / 移动按同一前缀丢弃. Windows 的删除通知不区分文件与目录. 库内目录改名仍是 moved 事件加合成子文件事件, 不按前缀删除; 目录创建仍忽略, 移入靠合成子文件事件. `.amane_trash` 下的路径忽略.
+Watcher 的 `automation` 三档都不自动 ORGANIZE / TRASH, 归属随事件携带, 见 [watcher.md](watcher.md) / [data-model.md](data-model.md).

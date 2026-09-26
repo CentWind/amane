@@ -7,14 +7,10 @@
 
 ```
 CrawlerFactory (缓存实例)
-  ├── Crawler 子类 (影片, sites/ + registry)
-  │     ├── profile() → CrawlerProfile
-  │     ├── _search(query, options) → URL | None
-  │     └── _scrape(url, options) → MediaMetadata | None
-  └── ActorCrawler 子类 (演员, crawlers/actor/ + actor_registry)
-        ├── fetch(name) → ActorMetadata | None
-        └── 默认 Template: _search / _scrape; 纯索引源可 override fetch
-              └── HttpClient → WebClient → RateLimiters
+  ├── Crawler 子类 (影片, sites/ + registry): _search / _scrape (或 override fetch)
+  ├── ActorCrawler 子类 (演员, actor/ + actor_registry): fetch
+  └── 插件来源 provider (按来源 ID 延迟创建)
+        └── HttpClient → WebClient → RateLimiters
 ```
 
 外部影片插件在同一个 `CrawlerFactory` 中按来源 ID 延迟创建: 插件返回的 provider 经适配后满足影片爬虫的 `fetch()` 协议, 统一进入聚合、限速、HTTP 记录和站点结果摘要. 第三方来源 ID 规则见 [plugins.md](plugins.md).
@@ -27,7 +23,7 @@ CrawlerFactory (缓存实例)
 
 ## 影片出演者
 
-`MediaMetadata.actors` 是 `list[FilmActor]` (`name` + `gender`); 旧 `list[str]` 与站点级 raw 快照经 validator 收成 `gender=unknown`. 名单语义能判定性别时爬虫必须写出 `female` / `male`, 栏位无法判定则保持 `unknown`. 聚合锁定与落库填空见 [data-model.md](data-model.md).
+`MediaMetadata.actors` 是 `list[FilmActor]` (`name` + `gender`); 站点级 raw 快照与旧形态经 validator 收成 `gender=unknown`. 名单语义能判定性别时爬虫必须写出 `female` / `male`, 栏位无法判定则保持 `unknown`. 聚合锁定与落库填空见 [data-model.md](data-model.md).
 
 ## 片商与发行商
 
@@ -39,7 +35,7 @@ CrawlerFactory (缓存实例)
 
 ## 连通性探测
 
-`Crawler.check_connectivity` / `ActorCrawler.check_connectivity` 是「网络检测」页的逐来源探测点, 缺省 GET `base_url` 并带上已合并的 cookies 与 headers, 与刮削同用一条 HTTP 通道 (代理 / 指纹 / 限速 / 同源 Referer), 判定复用 `net/errors.py` 的拦截分类. **实际入口不是 `base_url` 的来源必须覆盖它**, 否则会把「入口 404 / 是 API 端点」误报成不可达: `theporndb` 发一次 GraphQL, `official` 取一个厂牌站作代表 (用户配了 `official_routes` 时取其中首个), `gfriends` 探测仓库根下的 `Filetree.json`, `prestige` 探测 SKU JSON API (首页带年龄墙), `r18dev` 与缺凭据的来源返回 `SKIPPED` 并给出 `SkipReason`. 探测是单次尝试 (重试只会把同一个结论拖长), 编排与端点见 [api.md](api.md) 的 `/network/check`.
+`Crawler.check_connectivity` / `ActorCrawler.check_connectivity` 是「网络检测」页的逐来源探测点, 缺省 GET `base_url` 并带上已合并的 cookies 与 headers, 与刮削同用一条 HTTP 通道 (代理 / 指纹 / 限速 / 同源 Referer), 判定复用 `net/errors.py` 的拦截分类. **实际入口不是 `base_url` 的来源必须覆盖它**, 否则会把「入口 404 / 是 API 端点」误报成不可达; 缺凭据的来源返回 `SKIPPED` 并给出 `SkipReason`. 探测是单次尝试 (重试只会把同一个结论拖长), 编排与端点见 [api.md](api.md) 的 `/network/check`.
 
 ## 番号入参
 
@@ -64,7 +60,7 @@ CrawlerFactory (缓存实例)
 - JSON API 用 `get_json` / `post_json`, 不执行 HTML 启发式; `post_json` 载荷可以是 object 或 array (Yii 式 RPC).
 - `download` / `ResourceStore.acquire` 是机会主义的: 调用方 `except RequestError: return None` / 返回 `bool`, 不经由第二套错误通道. `ResourceStore.acquire` 另按重定向终址拒收上游改派的占位图 (DMM 的 `now_printing`), 由多 URL 试探回退.
 - 多 URL 试探可在子类 `except RequestError: continue`; 全部失败时抛出最后一次异常, 不允许吞没为裸 `None`.
-- 防盗链: 声明 `CrawlerProfile.same_origin_referer` 的站点, 其 host (`profile()` 的 `urls` / `base_url` 与 `SiteConfig.base_url` 镜像域) 由 `build_network_stack` 交给 `WebClient`, `request` 在调用方未给 `Referer` 时补 `https://{host}/`. 页面与图片共用该通道, 站点按 Referer 前缀匹配, 结尾斜杠不可省略.
+- 防盗链: 声明 `CrawlerProfile.same_origin_referer` 的站点, 其 host 由 `build_network_stack` 交给 `WebClient`, 调用方未给 `Referer` 时补 `https://{host}/`; 站点按前缀匹配, 结尾斜杠不可省略.
 
 ### 拦截判定
 
@@ -80,7 +76,7 @@ CrawlerFactory (缓存实例)
 
 ## 外部 API 读模型
 
-外部站点的 schema 不受本项目控制, 对象字段必须声明为 `T | None = None`, 标量与列表保留空默认值. 漏标可空时单个 null 会让整条响应解析失败, 而 `_scrape*` 对解析失败与来源无内容都返回 `None`, 该错误只有 `debug` 级日志.
+外部站点的 schema 不受本项目控制, 对象字段必须声明为 `T | None = None`, 标量与列表保留空默认值: 漏标可空时单个 null 会让整条响应解析失败, 而 `_scrape*` 对解析失败与来源无内容都返回 `None`, 该错误只有 `debug` 级日志.
 
 ## 新爬虫接入
 
@@ -93,14 +89,14 @@ CrawlerFactory (缓存实例)
 
 ## 特殊数据源: r18.dev 离线 PG 镜像
 
-`src/amane/crawlers/r18dev/` + `sites/r18dev.py`. r18.dev 不提供逐番号 HTTP 接口, 而是发布完整 **PostgreSQL dump**; dump 是 PG 专用 (COPY / Identity / 角色系统), 无法转为 SQLite, 因此使用独立的只读 PG 镜像: 用户自备 PG 实例并提供连接串 (`hot.r18.dsn`, 需 CREATEDB / CREATEROLE), 项目负责建库 / 导入 / 原子换名 / 创建只读角色. 该库不纳入 Alembic (外部只读镜像, 定位同 `TranslationCache`, 见 [database.md](database.md)); 配置在 Hot, 修改 dsn 经由 `AppRuntime.rebuild()`.
+`src/amane/crawlers/r18dev/` + `sites/r18dev.py`. r18.dev 不提供逐番号 HTTP 接口, 而是发布完整 **PostgreSQL dump**; dump 是 PG 专用 (COPY / Identity / 角色系统), 无法转为 SQLite, 因此使用独立的只读 PG 镜像: 用户自备 PG 实例并提供连接串 (`hot.r18.dsn`, 需 CREATEDB / CREATEROLE), 项目负责建库 / 导入 / 原子换名 / 创建只读角色. 该库不纳入 Alembic (外部只读镜像, 见 [database.md](database.md)); 配置在 Hot, 修改 dsn 经由 `AppRuntime.rebuild()`.
 
 `R18DevCrawler` override `fetch()` 用 SQL 替代 HTTP 两步; 只读 `R18Database` 由 `CrawlerFactory` 构造期特判注入. PG 未配置或镜像未导入时 `fetch()` 返回 `None`, 不中断多源聚合.
 
-**固定 SQL 契约, 不映射全表**: r18 schema 不受本项目控制, 列可能随时变更, 因此用**固定显式列 SQL** 作为与 r18 schema 的唯一契约 (只点名用到的列), 结果映射进字段全 Optional 的宽松 Pydantic 读模型, 某列变 NULL / 缺失降级为空而非崩溃. `R18Repository.schema_probes()` 提供与运行时**同源**的探针 SQL, 导入器用它校验刚导入的临时库; 任一探针失败则拒绝原子换名, 线上停留在上一个 good 版本.
+**固定 SQL 契约, 不映射全表**: r18 schema 不受本项目控制, 列可能随时变更, 因此用**固定显式列 SQL** 作为与 r18 schema 的唯一契约 (只点名用到的列), 某列变 NULL / 缺失降级为空而非崩溃. `R18Repository.schema_probes()` 提供与运行时**同源**的探针 SQL, 导入器用它校验刚导入的临时库; 任一探针失败则拒绝原子换名, 线上停留在上一个 good 版本.
 
-**导入流程** (`importer.py`, 经 `TaskType.R18_IMPORT` 由 worker 非内联执行): HEAD 探测 ETag → 与已导入版本比对 (持久化在 `data_dir/r18_import.json`, 相同则跳过) → 下载 → gunzip → 写入临时库 (`psql -f` 子进程) → schema 探针校验 → DROP 旧库 + RENAME 临时库 → 创建 / 授权只读角色. 依赖外部 `psql` (容器需 `postgresql-client`). **定时导入无专属配置**: 通过 Schedule API 手动创建 `r18_import` 例行任务, 与 cleanup / upscale 无区别.
+**导入流程** (`importer.py`, 经 `TaskType.R18_IMPORT` 由 worker 非内联执行): HEAD 探测 ETag → 与已导入版本比对 (相同则跳过) → 下载 → gunzip → 写入临时库 (`psql -f` 子进程) → schema 探针校验 → DROP 旧库 + RENAME 临时库 → 创建 / 授权只读角色. 依赖外部 `psql` (容器需 `postgresql-client`). **定时导入无专属配置**: 通过 Schedule API 手动创建 `r18_import` 例行任务, 与 cleanup / upscale 无区别.
 
-**番号 → content_id 匹配**: r18 主键是 DMM `content_id` (`midv00123`), 输入是标准番号 (`MIDV-123`), 当前为基础实现 (dvd_id 精确 + content_id 三种零填充变体). 模糊匹配、service_code 优选、检索类查询的扩展点位于 `R18Repository`, 不影响爬虫接口.
+**番号 → content_id 匹配**: r18 主键是 DMM `content_id` (`midv00123`), 输入是标准番号 (`MIDV-123`), 当前为基础实现 (dvd_id 精确 + content_id 三种零填充变体). 检索类查询的扩展点在 `R18Repository`, 不影响爬虫接口.
 
-**图片 URL 补全** (`mapper.py`): dump 中所有图片 URL 均为无域名、无扩展名的相对路径, 映射层负责补全 — `digital/video/` 与 `digital/amateur/` 走 DMM Digital 高清 CDN (`awsimgsrc.dmm.co.jp/pics_dig/`, 下载失败由下游 HttpClient 按机会主义降级), 其余路径走 `pics.dmm.co.jp/`, 均追加 `.jpg`. 剧照 dump 仅存首尾路径, 首尾编号之间为连续序列, 据此生成全量列表; `last` 以 `-0` 结尾视为单图标记.
+**图片 URL 补全** (`mapper.py`): dump 中所有图片 URL 均为无域名、无扩展名的相对路径, 映射层负责补全并生成剧照全量列表; 单图标记与 CDN 选择见该文件.
