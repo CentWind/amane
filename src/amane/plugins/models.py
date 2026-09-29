@@ -53,6 +53,14 @@ class SourceCapability(StrEnum):
     PLAYBACK = "playback"
 
 
+class SourceTrait(StrEnum):
+    """Source properties the aggregation engine reads when ordering sources."""
+
+    # 依赖前序来源的聚合结果: 排第二段执行, 收到只读 ``partial_result``.
+    # 单层依赖: 同段来源彼此不可见, 不支持来源之间互相声明依赖.
+    NEEDS_PARTIAL = "needs_partial"
+
+
 class SourceDescriptor(BaseModel):
     """Stable, serializable description of a metadata source."""
 
@@ -68,6 +76,8 @@ class SourceDescriptor(BaseModel):
     languages: frozenset[str] = frozenset()
     urls: tuple[str, ...] = ()
     multi_language: bool = False
+    traits: frozenset[str] = frozenset()
+    """调度属性; 未知取值被忽略, 允许插件先声明宿主后续新增的值."""
     rate_limit: float | None = Field(default=None, ge=0.1, le=100)
 
     @field_validator("id")

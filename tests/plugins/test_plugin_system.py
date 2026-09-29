@@ -18,6 +18,7 @@ from amane.plugin import (
     PluginContext,
     SourceCapability,
     SourceDescriptor,
+    SourceTrait,
     is_external_source_id,
     validate_external_source_id,
 )
@@ -48,8 +49,10 @@ def plugin_source(
     class_name: str = "Plugin",
     api_version: str | None = None,
     content_types: str = '{"censored"}',
+    traits: str | None = None,
 ) -> str:
     version_arg = f", api_version={api_version!r}" if api_version is not None else ""
+    traits_arg = f", traits=frozenset({{{traits}}})" if traits is not None else ""
     return f"""
 from pydantic import BaseModel, ConfigDict
 
@@ -86,7 +89,7 @@ class {class_name}(FilmSourcePlugin):
             capabilities=frozenset({{SourceCapability.FILM_METADATA}}),
             content_types=frozenset({content_types}),
             urls=("https://plugin.example.test",),
-            multi_language=True{version_arg},
+            multi_language=True{version_arg}{traits_arg},
         )
 
     def build(self, context: PluginContext, config: BaseModel) -> FilmSourceProvider:
@@ -157,6 +160,14 @@ def test_plugin_manager_discovers_dropins(tmp_path: Path) -> None:
     assert any("reserved" in failure.error for failure in manager.failures)
 
 
+def test_unknown_trait_does_not_fail_load(tmp_path: Path) -> None:
+    """未知 trait 只记 warning 并忽略, 插件仍加载 — 宿主与插件版本可以不一致."""
+    write_plugin(tmp_path, "acme.future", body=plugin_source("acme.future", traits='"not_a_trait"'))
+    manager = PluginManager.discover(tmp_path)
+    assert manager.has_plugin("acme.future")
+    assert not manager.failures
+
+
 def test_discover_rejects_descriptor_id_mismatch(tmp_path: Path) -> None:
     write_plugin(tmp_path, "acme.fake", directory_name="acme.other")
     manager = PluginManager.discover(tmp_path)
@@ -168,6 +179,32 @@ def test_discover_rejects_descriptor_id_mismatch(tmp_path: Path) -> None:
 def test_source_descriptor_rejects_unstable_ids() -> None:
     with pytest.raises(ValidationError, match="source id"):
         SourceDescriptor(id="FakePlugin", name="Invalid")
+
+
+def test_builtin_descriptor_mirrors_traits() -> None:
+    """内置来源的 traits 经 descriptor 镜像, 可按 trait 取出声明来源."""
+    manager = PluginManager({}, [])
+    official = manager.descriptor("official")
+    javdb = manager.descriptor("javdb")
+    assert official is not None
+    assert javdb is not None
+    assert SourceTrait.NEEDS_PARTIAL in official.traits
+    assert manager.sources_with_trait(SourceTrait.NEEDS_PARTIAL) == frozenset({"official"})
+    assert javdb.traits == frozenset()
+
+
+class TraitPlugin(FakePlugin):
+    """在 descriptor 里声明 NEEDS_PARTIAL 的外部插件."""
+
+    @classmethod
+    def descriptor(cls) -> SourceDescriptor:
+        return super().descriptor().model_copy(update={"traits": frozenset({"needs_partial"})})
+
+
+def test_sources_with_trait_includes_external_plugin() -> None:
+    """外部插件声明的 trait 与内置来源一起进入 sources_with_trait."""
+    manager = PluginManager({"acme.fake": TraitPlugin()}, [])
+    assert manager.sources_with_trait(SourceTrait.NEEDS_PARTIAL) == frozenset({"acme.fake", "official"})
 
 
 @pytest.mark.parametrize(

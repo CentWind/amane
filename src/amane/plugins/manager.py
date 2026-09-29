@@ -25,6 +25,7 @@ from .models import (
     PluginOrigin,
     SourceCapability,
     SourceDescriptor,
+    SourceTrait,
     is_external_source_id,
     validate_external_source_id,
 )
@@ -38,6 +39,8 @@ from .packaging import (
 )
 
 logger = logging.getLogger(__name__)
+
+_KNOWN_TRAITS: frozenset[str] = frozenset(trait.value for trait in SourceTrait)
 
 
 class PluginLoadFailure(BaseModel):
@@ -124,6 +127,13 @@ class PluginManager:
                         f"unsupported plugin API version {descriptor.api_version!r}; expected {PLUGIN_API_VERSION!r}"
                     )
                 _require_matching_capabilities(plugin, descriptor)
+                unknown_traits = sorted(trait for trait in descriptor.traits if trait not in _KNOWN_TRAITS)
+                if unknown_traits:
+                    # 未知取值降级为忽略: 插件可能针对更新的宿主声明了本版本还不认识的 trait.
+                    logger.warning(
+                        "unknown source traits ignored",
+                        extra={"plugin": plugin_id, "traits": unknown_traits},
+                    )
                 validate_external_source_id(descriptor.id)
                 if descriptor.id != plugin_id:
                     raise ValueError(f"descriptor id {descriptor.id!r} does not match directory name {plugin_id!r}")
@@ -147,6 +157,9 @@ class PluginManager:
     @property
     def multi_language_sources(self) -> frozenset[str]:
         return frozenset(descriptor.id for descriptor in self.descriptors() if descriptor.multi_language)
+
+    def sources_with_trait(self, trait: SourceTrait) -> frozenset[str]:
+        return frozenset(descriptor.id for descriptor in self.descriptors() if trait.value in descriptor.traits)
 
     def get(self, source_id: str) -> InstalledPlugin | None:
         return self._plugins.get(source_id)
@@ -344,6 +357,7 @@ class PluginManager:
                     capabilities=frozenset(profile.effective_capabilities()),
                     urls=(*profile.urls, profile.base_url),
                     multi_language=profile.multi_language,
+                    traits=frozenset(str(trait) for trait in profile.traits),
                 )
             )
 
