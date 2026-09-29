@@ -1,6 +1,5 @@
 {
   "landingHint": "用自然语言查询与管理片库",
-  "selectSessionHint": "从左侧选择会话，或新建对话",
   "continueHint": "继续提问，或从左侧切换会话",
   "newSession": "新对话",
   "sessions": "会话",
@@ -13,6 +12,7 @@
   "batchApprove": "批量批准",
   "approvalApproved": "已批准",
   "approvalRejected": "已拒绝",
+  "approvalRejectReason": "用户拒绝执行",
   "openMeta": "在片库中打开",
   "openActors": "在演员中打开",
   "persist": "保留预设",
@@ -38,10 +38,13 @@
   "you": "你",
   "assistant": "Amane",
   "deleteSession": "删除会话",
+  "sessionDeleted": "会话已删除",
   "renameSession": "重命名",
   "renamePrompt": "会话标题",
   "confirmDeleteSession": "删除此会话？未保留的查询预设会一并删除。",
   "toolCallsCount": "调用了 {{n}} 个工具",
+  "toolArgs": "参数",
+  "toolResult": "结果",
   "savedQueryChip": "查询预设 #{{id}}",
   "usage": {
     "requests": "请求",
@@ -49,9 +52,11 @@
     "cacheRead": "缓存读",
     "cacheWrite": "缓存写",
     "output": "输出",
-    "cacheHit": "缓存命中"
+    "cacheHit": "缓存命中",
+    "duration": "耗时"
   },
   "loadingHistory": "加载历史…",
+  "turnRunning": "回合执行中",
   "thinking": {
     "label": "思考",
     "inherit": "默认",

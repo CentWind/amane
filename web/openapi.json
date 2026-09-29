@@ -5134,14 +5134,14 @@
         }
       }
     },
-    "/api/agent/sessions/{session_id}/messages/stream": {
+    "/api/agent/sessions/{session_id}/title": {
       "post": {
         "tags": [
           "agent"
         ],
-        "summary": "Stream Agent Message",
-        "description": "启动后台回合并以 SSE 订阅事件; 客户端断连不取消回合.",
-        "operationId": "stream_agent_message",
+        "summary": "Generate Agent Session Title",
+        "description": "按首条输入生成标题. 与主回合并行执行, 前端不等回合结束即可刷新列表.",
+        "operationId": "generate_agent_session_title",
         "parameters": [
           {
             "name": "session_id",
@@ -5158,7 +5158,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AgentMessageRequest"
+                "$ref": "#/components/schemas/AgentSessionTitleRequest"
               }
             }
           }
@@ -5168,201 +5168,8 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/agent/sessions/{session_id}/events/stream": {
-      "get": {
-        "tags": [
-          "agent"
-        ],
-        "summary": "Stream Agent Events",
-        "description": "续订会话事件流 (刷新或切换页面后用). after= 上次收到的 seq.",
-        "operationId": "stream_agent_events",
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Session Id"
-            }
-          },
-          {
-            "name": "after",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0,
-              "title": "After"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/agent/sessions/{session_id}/approve/stream": {
-      "post": {
-        "tags": [
-          "agent"
-        ],
-        "summary": "Stream Approve Agent Sql",
-        "operationId": "stream_approve_agent_sql",
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Session Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AgentApproveRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/agent/sessions/{session_id}/reject/stream": {
-      "post": {
-        "tags": [
-          "agent"
-        ],
-        "summary": "Stream Reject Agent Approval",
-        "operationId": "stream_reject_agent_approval",
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Session Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AgentRejectRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/agent/sessions/{session_id}/cancel": {
-      "post": {
-        "tags": [
-          "agent"
-        ],
-        "summary": "Cancel Agent Turn",
-        "description": "显式终止后台回合; 与 SSE 断连无关.",
-        "operationId": "cancel_agent_turn",
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Session Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentCancelResponse"
+                  "$ref": "#/components/schemas/AgentSessionTitleResponse"
                 }
               }
             }
@@ -5658,6 +5465,137 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SavedQueryResultResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agent/sessions/{session_id}/agui": {
+      "post": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Run Agent Agui",
+        "description": "启动 AG-UI 回合 (后台执行) 并订阅其事件. ``threadId`` 由适配器映射为 ``conversation_id``.",
+        "operationId": "run_agent_agui",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/event-stream": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agent/sessions/{session_id}/agui/events": {
+      "get": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Follow Agent Events",
+        "description": "跟随 ``after_seq`` 之后的回放行, 供页面接上进度: 整段历史走 ``/trace``, 这里只接新行.\n\n页面发起的回合也走这条通道 (展示只认回放行), 因此必须能给出起始位置: 否则每接一次都要重发整段历史.\n\n只订阅, **不**启动回合, 故进行中的回合也不会 409; 回合结束且追平后关闭.",
+        "operationId": "follow_agent_events",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "after_seq",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "After Seq"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/event-stream": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agent/sessions/{session_id}/agui/cancel": {
+      "post": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "Cancel Agui Turn",
+        "description": "显式终止后台回合: 客户端 abort 只是断开订阅, 回合会继续运行.",
+        "operationId": "cancel_agui_turn",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentCancelResponse"
                 }
               }
             }
@@ -6220,32 +6158,6 @@
         ],
         "title": "ActorUserTagsRequest"
       },
-      "AgentApproveRequest": {
-        "properties": {
-          "approval_ids": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "maxItems": 64,
-            "minItems": 1,
-            "title": "Approval Ids"
-          },
-          "slow_timeout_ms": {
-            "type": "integer",
-            "maximum": 300000.0,
-            "minimum": 1000.0,
-            "title": "Slow Timeout Ms",
-            "default": 60000
-          }
-        },
-        "type": "object",
-        "required": [
-          "approval_ids"
-        ],
-        "title": "AgentApproveRequest",
-        "description": "一次可批多项; 服务端顺序执行后只开一轮模型 follow-up."
-      },
       "AgentCancelResponse": {
         "properties": {
           "cancelled": {
@@ -6354,34 +6266,6 @@
         "title": "AgentConfig",
         "description": "与 llm 翻译 section 分离: 凭据/模型/限速各自独立."
       },
-      "AgentMessageRequest": {
-        "properties": {
-          "content": {
-            "type": "string",
-            "maxLength": 32000,
-            "minLength": 1,
-            "title": "Content"
-          }
-        },
-        "type": "object",
-        "required": [
-          "content"
-        ],
-        "title": "AgentMessageRequest"
-      },
-      "AgentRejectRequest": {
-        "properties": {
-          "approval_id": {
-            "type": "string",
-            "title": "Approval Id"
-          }
-        },
-        "type": "object",
-        "required": [
-          "approval_id"
-        ],
-        "title": "AgentRejectRequest"
-      },
       "AgentSessionCreateRequest": {
         "properties": {
           "title": {
@@ -6464,6 +6348,35 @@
         ],
         "title": "AgentSessionStatus"
       },
+      "AgentSessionTitleRequest": {
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Prompt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "prompt"
+        ],
+        "title": "AgentSessionTitleRequest",
+        "description": "首条用户输入: 标题只依据它生成."
+      },
+      "AgentSessionTitleResponse": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "title": "AgentSessionTitleResponse"
+      },
       "AgentSessionUpdateRequest": {
         "properties": {
           "title": {
@@ -6516,8 +6429,53 @@
           },
           "events": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/UserMessageRow"
+                },
+                {
+                  "$ref": "#/components/schemas/ReasoningDeltaRow"
+                },
+                {
+                  "$ref": "#/components/schemas/TextDeltaRow"
+                },
+                {
+                  "$ref": "#/components/schemas/ToolCallRow"
+                },
+                {
+                  "$ref": "#/components/schemas/ToolResultRow"
+                },
+                {
+                  "$ref": "#/components/schemas/RequestUsageRow"
+                },
+                {
+                  "$ref": "#/components/schemas/TurnUsageRow"
+                },
+                {
+                  "$ref": "#/components/schemas/ApprovalsRow"
+                },
+                {
+                  "$ref": "#/components/schemas/ErrorRow"
+                },
+                {
+                  "$ref": "#/components/schemas/CancelledRow"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "type",
+                "mapping": {
+                  "approvals": "#/components/schemas/ApprovalsRow",
+                  "cancelled": "#/components/schemas/CancelledRow",
+                  "error": "#/components/schemas/ErrorRow",
+                  "reasoning_delta": "#/components/schemas/ReasoningDeltaRow",
+                  "request_usage": "#/components/schemas/RequestUsageRow",
+                  "text_delta": "#/components/schemas/TextDeltaRow",
+                  "tool_call": "#/components/schemas/ToolCallRow",
+                  "tool_result": "#/components/schemas/ToolResultRow",
+                  "turn_usage": "#/components/schemas/TurnUsageRow",
+                  "user_message": "#/components/schemas/UserMessageRow"
+                }
+              }
             },
             "type": "array",
             "title": "Events"
@@ -6548,6 +6506,45 @@
           "anthropic"
         ],
         "title": "ApiType"
+      },
+      "ApprovalsRow": {
+        "properties": {
+          "seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seq"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "type": {
+            "type": "string",
+            "const": "approvals",
+            "title": "Type"
+          },
+          "interrupts": {
+            "items": {
+              "$ref": "#/components/schemas/Interrupt"
+            },
+            "type": "array",
+            "title": "Interrupts"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "interrupts"
+        ],
+        "title": "ApprovalsRow",
+        "description": "未决审批快照. 每个回合结束发一条, **空列表表示已无未决**, 后者覆盖前者.\n\n原样携带 AG-UI 中断: 前端既用它渲染审批入口, 也把它交给 runtime 完成 `resume`."
       },
       "Body_install_plugin": {
         "properties": {
@@ -6588,6 +6585,37 @@
         ],
         "title": "CacheKind",
         "description": "刮削可复用的缓存种类. use_cache 为其集合: 含某项 = 该缓存生效, 不含 = 强制刷新该项."
+      },
+      "CancelledRow": {
+        "properties": {
+          "seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seq"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "type": {
+            "type": "string",
+            "const": "cancelled",
+            "title": "Type"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "title": "CancelledRow",
+        "description": "回合被显式终止."
       },
       "CleanupSubmission": {
         "properties": {
@@ -6948,6 +6976,42 @@
         ],
         "title": "DownloadableResource",
         "description": "影片附属资源类型: 刮削写入 Resource, 整理时按库配置复制到库路径."
+      },
+      "ErrorRow": {
+        "properties": {
+          "seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seq"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "type": {
+            "type": "string",
+            "const": "error",
+            "title": "Type"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "message"
+        ],
+        "title": "ErrorRow",
+        "description": "回合异常; 文案直接进助手气泡."
       },
       "FacetKind": {
         "type": "string",
@@ -8271,6 +8335,95 @@
         "title": "HotSettings",
         "description": "运行时可更新, 持久化到 TOML. extra=forbid, 未知字段须校验失败."
       },
+      "Interrupt": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "toolCallId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Toolcallid"
+          },
+          "responseSchema": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responseschema"
+          },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expiresat"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          },
+          "subagentRunId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subagentrunid"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "reason"
+        ],
+        "title": "Interrupt",
+        "description": "A pause carried inside ``RunFinishedEvent.outcome`` when the outcome is\n``RunFinishedInterruptOutcome``. The client resumes\nby addressing this interrupt in the resume array of the next RunAgentInput."
+      },
+      "JsonValue": {},
       "LLMConfig": {
         "properties": {
           "enabled": {
@@ -10830,6 +10983,47 @@
         ],
         "title": "R18ImportSubmission"
       },
+      "ReasoningDeltaRow": {
+        "properties": {
+          "seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seq"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "type": {
+            "type": "string",
+            "const": "reasoning_delta",
+            "title": "Type"
+          },
+          "block_id": {
+            "type": "string",
+            "title": "Block Id"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "block_id",
+          "text"
+        ],
+        "title": "ReasoningDeltaRow",
+        "description": "思考增量; `block_id` 取自协议的消息 id, 前端据此归块而不靠相邻关系."
+      },
       "RefreshSubmission": {
         "properties": {
           "library_id": {
@@ -10961,6 +11155,81 @@
           "newer"
         ],
         "title": "ReleaseResponse"
+      },
+      "RequestTokenUsage": {
+        "properties": {
+          "input": {
+            "type": "integer",
+            "title": "Input"
+          },
+          "cache_read": {
+            "type": "integer",
+            "title": "Cache Read"
+          },
+          "cache_write": {
+            "type": "integer",
+            "title": "Cache Write"
+          },
+          "output": {
+            "type": "integer",
+            "title": "Output"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "input",
+          "cache_read",
+          "cache_write",
+          "output"
+        ],
+        "title": "RequestTokenUsage",
+        "description": "单次模型请求的用量. `duration_ms` 是请求发出到响应收到的本地时间差, 不含工具执行."
+      },
+      "RequestUsageRow": {
+        "properties": {
+          "seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seq"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "type": {
+            "type": "string",
+            "const": "request_usage",
+            "title": "Type"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/RequestTokenUsage"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "usage"
+        ],
+        "title": "RequestUsageRow",
+        "description": "单次模型请求的用量; 该次响应一到即写行, 到达顺序即它在回合里的位置 (这次响应的正文与工具调用之后)."
       },
       "RescrapeSubmission": {
         "properties": {
@@ -12522,6 +12791,132 @@
         ],
         "title": "TaskWorkerResponse"
       },
+      "TextDeltaRow": {
+        "properties": {
+          "seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seq"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "type": {
+            "type": "string",
+            "const": "text_delta",
+            "title": "Type"
+          },
+          "block_id": {
+            "type": "string",
+            "title": "Block Id"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "block_id",
+          "text"
+        ],
+        "title": "TextDeltaRow",
+        "description": "正文增量; 归块同 `ReasoningDeltaRow`."
+      },
+      "ToolCallRow": {
+        "properties": {
+          "seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seq"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "type": {
+            "type": "string",
+            "const": "tool_call",
+            "title": "Type"
+          },
+          "tool_call_id": {
+            "type": "string",
+            "title": "Tool Call Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "args": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "tool_call_id",
+          "name",
+          "args"
+        ],
+        "title": "ToolCallRow",
+        "description": "工具调用成形 (协议按增量传参, 这里已解析). 卡片的名字与参数由此行给出.\n\n`args` 在生成的 TS 类型里退化为 `unknown` (pydantic 的 `JsonValue` 无法表达到 schema),\n类型层面的保证到后端为止."
+      },
+      "ToolResultRow": {
+        "properties": {
+          "seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seq"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "type": {
+            "type": "string",
+            "const": "tool_result",
+            "title": "Type"
+          },
+          "tool_call_id": {
+            "type": "string",
+            "title": "Tool Call Id"
+          },
+          "result": {
+            "$ref": "#/components/schemas/JsonValue"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "tool_call_id",
+          "result"
+        ],
+        "title": "ToolResultRow",
+        "description": "工具回执. 名字与参数在同 id 的 `ToolCallRow`, 故本行只带结果 (续批的回合不会再报调用名)."
+      },
       "TrashSubmission": {
         "properties": {
           "library_id": {
@@ -12578,6 +12973,75 @@
         ],
         "title": "TrashSubmission"
       },
+      "TurnTokenUsage": {
+        "properties": {
+          "input": {
+            "type": "integer",
+            "title": "Input"
+          },
+          "cache_read": {
+            "type": "integer",
+            "title": "Cache Read"
+          },
+          "cache_write": {
+            "type": "integer",
+            "title": "Cache Write"
+          },
+          "output": {
+            "type": "integer",
+            "title": "Output"
+          },
+          "requests": {
+            "type": "integer",
+            "title": "Requests"
+          }
+        },
+        "type": "object",
+        "required": [
+          "input",
+          "cache_read",
+          "cache_write",
+          "output",
+          "requests"
+        ],
+        "title": "TurnTokenUsage",
+        "description": "`input` 是非缓存输入 (总量减去 cache_read/cache_write). pydantic-ai 的 `input_tokens` 含缓存, 此处拆开.\n\n字段不给默认值: 回放行里的用量总是全字段, 前端因此可以直接参与算术."
+      },
+      "TurnUsageRow": {
+        "properties": {
+          "seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seq"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "type": {
+            "type": "string",
+            "const": "turn_usage",
+            "title": "Type"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/TurnTokenUsage"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "usage"
+        ],
+        "title": "TurnUsageRow",
+        "description": "回合收尾: 聚合用量归属当前助手消息, 同时标志本轮结束.\n\n正文不在此行重复: 适配器对每段正文都发 `TEXT_MESSAGE_CONTENT`, 故正文必然已由\n`TextDeltaRow` 落盘, 无须回退到整段文本."
+      },
       "UpscaleSubmission": {
         "properties": {
           "max_dim_threshold": {
@@ -12618,6 +13082,42 @@
           "type"
         ],
         "title": "UpscaleSubmission"
+      },
+      "UserMessageRow": {
+        "properties": {
+          "seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seq"
+          },
+          "at": {
+            "type": "string",
+            "title": "At"
+          },
+          "type": {
+            "type": "string",
+            "const": "user_message",
+            "title": "Type"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "text"
+        ],
+        "title": "UserMessageRow",
+        "description": "用户输入. 批准 / 拒绝只以 tool return 进模型上下文, 不产生此行的旁白."
       },
       "UserTagLinksResponse": {
         "properties": {

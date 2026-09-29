@@ -551,33 +551,6 @@ export const ActorUserTagsRequestSchema = {
     title: 'ActorUserTagsRequest'
 } as const;
 
-export const AgentApproveRequestSchema = {
-    properties: {
-        approval_ids: {
-            items: {
-                type: 'string'
-            },
-            type: 'array',
-            maxItems: 64,
-            minItems: 1,
-            title: 'Approval Ids'
-        },
-        slow_timeout_ms: {
-            type: 'integer',
-            maximum: 300000,
-            minimum: 1000,
-            title: 'Slow Timeout Ms',
-            default: 60000
-        }
-    },
-    type: 'object',
-    required: [
-        'approval_ids'
-    ],
-    title: 'AgentApproveRequest',
-    description: '一次可批多项; 服务端顺序执行后只开一轮模型 follow-up.'
-} as const;
-
 export const AgentCancelResponseSchema = {
     properties: {
         cancelled: {
@@ -688,36 +661,6 @@ export const AgentConfigSchema = {
     description: '与 llm 翻译 section 分离: 凭据/模型/限速各自独立.'
 } as const;
 
-export const AgentMessageRequestSchema = {
-    properties: {
-        content: {
-            type: 'string',
-            maxLength: 32000,
-            minLength: 1,
-            title: 'Content'
-        }
-    },
-    type: 'object',
-    required: [
-        'content'
-    ],
-    title: 'AgentMessageRequest'
-} as const;
-
-export const AgentRejectRequestSchema = {
-    properties: {
-        approval_id: {
-            type: 'string',
-            title: 'Approval Id'
-        }
-    },
-    type: 'object',
-    required: [
-        'approval_id'
-    ],
-    title: 'AgentRejectRequest'
-} as const;
-
 export const AgentSessionCreateRequestSchema = {
     properties: {
         title: {
@@ -804,6 +747,37 @@ export const AgentSessionStatusSchema = {
     title: 'AgentSessionStatus'
 } as const;
 
+export const AgentSessionTitleRequestSchema = {
+    properties: {
+        prompt: {
+            type: 'string',
+            maxLength: 4000,
+            minLength: 1,
+            title: 'Prompt'
+        }
+    },
+    type: 'object',
+    required: [
+        'prompt'
+    ],
+    title: 'AgentSessionTitleRequest',
+    description: '首条用户输入: 标题只依据它生成.'
+} as const;
+
+export const AgentSessionTitleResponseSchema = {
+    properties: {
+        title: {
+            type: 'string',
+            title: 'Title'
+        }
+    },
+    type: 'object',
+    required: [
+        'title'
+    ],
+    title: 'AgentSessionTitleResponse'
+} as const;
+
 export const AgentSessionUpdateRequestSchema = {
     properties: {
         title: {
@@ -858,8 +832,53 @@ export const AgentTraceResponseSchema = {
         },
         events: {
             items: {
-                additionalProperties: true,
-                type: 'object'
+                oneOf: [
+                    {
+                        $ref: '#/components/schemas/UserMessageRow'
+                    },
+                    {
+                        $ref: '#/components/schemas/ReasoningDeltaRow'
+                    },
+                    {
+                        $ref: '#/components/schemas/TextDeltaRow'
+                    },
+                    {
+                        $ref: '#/components/schemas/ToolCallRow'
+                    },
+                    {
+                        $ref: '#/components/schemas/ToolResultRow'
+                    },
+                    {
+                        $ref: '#/components/schemas/RequestUsageRow'
+                    },
+                    {
+                        $ref: '#/components/schemas/TurnUsageRow'
+                    },
+                    {
+                        $ref: '#/components/schemas/ApprovalsRow'
+                    },
+                    {
+                        $ref: '#/components/schemas/ErrorRow'
+                    },
+                    {
+                        $ref: '#/components/schemas/CancelledRow'
+                    }
+                ],
+                discriminator: {
+                    propertyName: 'type',
+                    mapping: {
+                        approvals: '#/components/schemas/ApprovalsRow',
+                        cancelled: '#/components/schemas/CancelledRow',
+                        error: '#/components/schemas/ErrorRow',
+                        reasoning_delta: '#/components/schemas/ReasoningDeltaRow',
+                        request_usage: '#/components/schemas/RequestUsageRow',
+                        text_delta: '#/components/schemas/TextDeltaRow',
+                        tool_call: '#/components/schemas/ToolCallRow',
+                        tool_result: '#/components/schemas/ToolResultRow',
+                        turn_usage: '#/components/schemas/TurnUsageRow',
+                        user_message: '#/components/schemas/UserMessageRow'
+                    }
+                }
             },
             type: 'array',
             title: 'Events'
@@ -891,6 +910,46 @@ export const ApiTypeSchema = {
         'anthropic'
     ],
     title: 'ApiType'
+} as const;
+
+export const ApprovalsRowSchema = {
+    properties: {
+        seq: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Seq'
+        },
+        at: {
+            type: 'string',
+            title: 'At'
+        },
+        type: {
+            type: 'string',
+            const: 'approvals',
+            title: 'Type'
+        },
+        interrupts: {
+            items: {
+                $ref: '#/components/schemas/Interrupt'
+            },
+            type: 'array',
+            title: 'Interrupts'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: [
+        'type',
+        'interrupts'
+    ],
+    title: 'ApprovalsRow',
+    description: '未决审批快照. 每个回合结束发一条, **空列表表示已无未决**, 后者覆盖前者.\n\n原样携带 AG-UI 中断: 前端既用它渲染审批入口, 也把它交给 runtime 完成 `resume`.'
 } as const;
 
 export const Body_install_pluginSchema = {
@@ -933,6 +992,38 @@ export const CacheKindSchema = {
     ],
     title: 'CacheKind',
     description: '刮削可复用的缓存种类. use_cache 为其集合: 含某项 = 该缓存生效, 不含 = 强制刷新该项.'
+} as const;
+
+export const CancelledRowSchema = {
+    properties: {
+        seq: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Seq'
+        },
+        at: {
+            type: 'string',
+            title: 'At'
+        },
+        type: {
+            type: 'string',
+            const: 'cancelled',
+            title: 'Type'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: [
+        'type'
+    ],
+    title: 'CancelledRow',
+    description: '回合被显式终止.'
 } as const;
 
 export const CleanupSubmissionSchema = {
@@ -1307,6 +1398,43 @@ export const DownloadableResourceSchema = {
     ],
     title: 'DownloadableResource',
     description: '影片附属资源类型: 刮削写入 Resource, 整理时按库配置复制到库路径.'
+} as const;
+
+export const ErrorRowSchema = {
+    properties: {
+        seq: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Seq'
+        },
+        at: {
+            type: 'string',
+            title: 'At'
+        },
+        type: {
+            type: 'string',
+            const: 'error',
+            title: 'Type'
+        },
+        message: {
+            type: 'string',
+            title: 'Message'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: [
+        'type',
+        'message'
+    ],
+    title: 'ErrorRow',
+    description: '回合异常; 文案直接进助手气泡.'
 } as const;
 
 export const FacetKindSchema = {
@@ -2656,6 +2784,97 @@ export const HotSettingsSchema = {
     title: 'HotSettings',
     description: '运行时可更新, 持久化到 TOML. extra=forbid, 未知字段须校验失败.'
 } as const;
+
+export const InterruptSchema = {
+    properties: {
+        id: {
+            type: 'string',
+            title: 'Id'
+        },
+        reason: {
+            type: 'string',
+            title: 'Reason'
+        },
+        message: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Message'
+        },
+        toolCallId: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Toolcallid'
+        },
+        responseSchema: {
+            anyOf: [
+                {
+                    additionalProperties: true,
+                    type: 'object'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Responseschema'
+        },
+        expiresAt: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Expiresat'
+        },
+        metadata: {
+            anyOf: [
+                {
+                    additionalProperties: true,
+                    type: 'object'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Metadata'
+        },
+        subagentRunId: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Subagentrunid'
+        }
+    },
+    additionalProperties: true,
+    type: 'object',
+    required: [
+        'id',
+        'reason'
+    ],
+    title: 'Interrupt',
+    description: 'A pause carried inside ``RunFinishedEvent.outcome`` when the outcome is\n``RunFinishedInterruptOutcome``. The client resumes\nby addressing this interrupt in the resume array of the next RunAgentInput.'
+} as const;
+
+export const JsonValueSchema = {} as const;
 
 export const LLMConfigSchema = {
     properties: {
@@ -5263,6 +5482,48 @@ export const R18ImportSubmissionSchema = {
     title: 'R18ImportSubmission'
 } as const;
 
+export const ReasoningDeltaRowSchema = {
+    properties: {
+        seq: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Seq'
+        },
+        at: {
+            type: 'string',
+            title: 'At'
+        },
+        type: {
+            type: 'string',
+            const: 'reasoning_delta',
+            title: 'Type'
+        },
+        block_id: {
+            type: 'string',
+            title: 'Block Id'
+        },
+        text: {
+            type: 'string',
+            title: 'Text'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: [
+        'type',
+        'block_id',
+        'text'
+    ],
+    title: 'ReasoningDeltaRow',
+    description: '思考增量; `block_id` 取自协议的消息 id, 前端据此归块而不靠相邻关系.'
+} as const;
+
 export const RefreshSubmissionSchema = {
     properties: {
         library_id: {
@@ -5395,6 +5656,83 @@ export const ReleaseResponseSchema = {
         'newer'
     ],
     title: 'ReleaseResponse'
+} as const;
+
+export const RequestTokenUsageSchema = {
+    properties: {
+        input: {
+            type: 'integer',
+            title: 'Input'
+        },
+        cache_read: {
+            type: 'integer',
+            title: 'Cache Read'
+        },
+        cache_write: {
+            type: 'integer',
+            title: 'Cache Write'
+        },
+        output: {
+            type: 'integer',
+            title: 'Output'
+        },
+        duration_ms: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Duration Ms'
+        }
+    },
+    type: 'object',
+    required: [
+        'input',
+        'cache_read',
+        'cache_write',
+        'output'
+    ],
+    title: 'RequestTokenUsage',
+    description: '单次模型请求的用量. `duration_ms` 是请求发出到响应收到的本地时间差, 不含工具执行.'
+} as const;
+
+export const RequestUsageRowSchema = {
+    properties: {
+        seq: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Seq'
+        },
+        at: {
+            type: 'string',
+            title: 'At'
+        },
+        type: {
+            type: 'string',
+            const: 'request_usage',
+            title: 'Type'
+        },
+        usage: {
+            $ref: '#/components/schemas/RequestTokenUsage'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: [
+        'type',
+        'usage'
+    ],
+    title: 'RequestUsageRow',
+    description: '单次模型请求的用量; 该次响应一到即写行, 到达顺序即它在回合里的位置 (这次响应的正文与工具调用之后).'
 } as const;
 
 export const RescrapeSubmissionSchema = {
@@ -6995,6 +7333,135 @@ export const TaskWorkerResponseSchema = {
     title: 'TaskWorkerResponse'
 } as const;
 
+export const TextDeltaRowSchema = {
+    properties: {
+        seq: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Seq'
+        },
+        at: {
+            type: 'string',
+            title: 'At'
+        },
+        type: {
+            type: 'string',
+            const: 'text_delta',
+            title: 'Type'
+        },
+        block_id: {
+            type: 'string',
+            title: 'Block Id'
+        },
+        text: {
+            type: 'string',
+            title: 'Text'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: [
+        'type',
+        'block_id',
+        'text'
+    ],
+    title: 'TextDeltaRow',
+    description: '正文增量; 归块同 `ReasoningDeltaRow`.'
+} as const;
+
+export const ToolCallRowSchema = {
+    properties: {
+        seq: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Seq'
+        },
+        at: {
+            type: 'string',
+            title: 'At'
+        },
+        type: {
+            type: 'string',
+            const: 'tool_call',
+            title: 'Type'
+        },
+        tool_call_id: {
+            type: 'string',
+            title: 'Tool Call Id'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        args: {
+            $ref: '#/components/schemas/JsonValue'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: [
+        'type',
+        'tool_call_id',
+        'name',
+        'args'
+    ],
+    title: 'ToolCallRow',
+    description: '工具调用成形 (协议按增量传参, 这里已解析). 卡片的名字与参数由此行给出.\n\n`args` 在生成的 TS 类型里退化为 `unknown` (pydantic 的 `JsonValue` 无法表达到 schema),\n类型层面的保证到后端为止.'
+} as const;
+
+export const ToolResultRowSchema = {
+    properties: {
+        seq: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Seq'
+        },
+        at: {
+            type: 'string',
+            title: 'At'
+        },
+        type: {
+            type: 'string',
+            const: 'tool_result',
+            title: 'Type'
+        },
+        tool_call_id: {
+            type: 'string',
+            title: 'Tool Call Id'
+        },
+        result: {
+            $ref: '#/components/schemas/JsonValue'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: [
+        'type',
+        'tool_call_id',
+        'result'
+    ],
+    title: 'ToolResultRow',
+    description: '工具回执. 名字与参数在同 id 的 `ToolCallRow`, 故本行只带结果 (续批的回合不会再报调用名).'
+} as const;
+
 export const TrashSubmissionSchema = {
     properties: {
         library_id: {
@@ -7052,6 +7519,77 @@ export const TrashSubmissionSchema = {
     title: 'TrashSubmission'
 } as const;
 
+export const TurnTokenUsageSchema = {
+    properties: {
+        input: {
+            type: 'integer',
+            title: 'Input'
+        },
+        cache_read: {
+            type: 'integer',
+            title: 'Cache Read'
+        },
+        cache_write: {
+            type: 'integer',
+            title: 'Cache Write'
+        },
+        output: {
+            type: 'integer',
+            title: 'Output'
+        },
+        requests: {
+            type: 'integer',
+            title: 'Requests'
+        }
+    },
+    type: 'object',
+    required: [
+        'input',
+        'cache_read',
+        'cache_write',
+        'output',
+        'requests'
+    ],
+    title: 'TurnTokenUsage',
+    description: '`input` 是非缓存输入 (总量减去 cache_read/cache_write). pydantic-ai 的 `input_tokens` 含缓存, 此处拆开.\n\n字段不给默认值: 回放行里的用量总是全字段, 前端因此可以直接参与算术.'
+} as const;
+
+export const TurnUsageRowSchema = {
+    properties: {
+        seq: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Seq'
+        },
+        at: {
+            type: 'string',
+            title: 'At'
+        },
+        type: {
+            type: 'string',
+            const: 'turn_usage',
+            title: 'Type'
+        },
+        usage: {
+            $ref: '#/components/schemas/TurnTokenUsage'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: [
+        'type',
+        'usage'
+    ],
+    title: 'TurnUsageRow',
+    description: '回合收尾: 聚合用量归属当前助手消息, 同时标志本轮结束.\n\n正文不在此行重复: 适配器对每段正文都发 `TEXT_MESSAGE_CONTENT`, 故正文必然已由\n`TextDeltaRow` 落盘, 无须回退到整段文本.'
+} as const;
+
 export const UpscaleSubmissionSchema = {
     properties: {
         max_dim_threshold: {
@@ -7092,6 +7630,43 @@ export const UpscaleSubmissionSchema = {
         'type'
     ],
     title: 'UpscaleSubmission'
+} as const;
+
+export const UserMessageRowSchema = {
+    properties: {
+        seq: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Seq'
+        },
+        at: {
+            type: 'string',
+            title: 'At'
+        },
+        type: {
+            type: 'string',
+            const: 'user_message',
+            title: 'Type'
+        },
+        text: {
+            type: 'string',
+            title: 'Text'
+        }
+    },
+    additionalProperties: false,
+    type: 'object',
+    required: [
+        'type',
+        'text'
+    ],
+    title: 'UserMessageRow',
+    description: '用户输入. 批准 / 拒绝只以 tool return 进模型上下文, 不产生此行的旁白.'
 } as const;
 
 export const UserTagLinksResponseSchema = {

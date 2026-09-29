@@ -291,22 +291,6 @@ export type ActorUserTagsRequest = {
 };
 
 /**
- * AgentApproveRequest
- *
- * 一次可批多项; 服务端顺序执行后只开一轮模型 follow-up.
- */
-export type AgentApproveRequest = {
-    /**
-     * Approval Ids
-     */
-    approval_ids: Array<string>;
-    /**
-     * Slow Timeout Ms
-     */
-    slow_timeout_ms?: number;
-};
-
-/**
  * AgentCancelResponse
  */
 export type AgentCancelResponse = {
@@ -367,26 +351,6 @@ export type AgentConfig = {
 };
 
 /**
- * AgentMessageRequest
- */
-export type AgentMessageRequest = {
-    /**
-     * Content
-     */
-    content: string;
-};
-
-/**
- * AgentRejectRequest
- */
-export type AgentRejectRequest = {
-    /**
-     * Approval Id
-     */
-    approval_id: string;
-};
-
-/**
  * AgentSessionCreateRequest
  */
 export type AgentSessionCreateRequest = {
@@ -436,6 +400,28 @@ export type AgentSessionResponse = {
 export type AgentSessionStatus = 'active' | 'awaiting_approval' | 'closed';
 
 /**
+ * AgentSessionTitleRequest
+ *
+ * 首条用户输入: 标题只依据它生成.
+ */
+export type AgentSessionTitleRequest = {
+    /**
+     * Prompt
+     */
+    prompt: string;
+};
+
+/**
+ * AgentSessionTitleResponse
+ */
+export type AgentSessionTitleResponse = {
+    /**
+     * Title
+     */
+    title: string;
+};
+
+/**
  * AgentSessionUpdateRequest
  *
  * title / thinking 均可选; thinking=null 表示取消覆盖, 继承全局默认.
@@ -468,9 +454,7 @@ export type AgentTraceResponse = {
     /**
      * Events
      */
-    events: Array<{
-        [key: string]: unknown;
-    }>;
+    events: Array<UserMessageRow | ReasoningDeltaRow | TextDeltaRow | ToolCallRow | ToolResultRow | RequestUsageRow | TurnUsageRow | ApprovalsRow | ErrorRow | CancelledRow>;
     /**
      * Turn Running
      */
@@ -485,6 +469,32 @@ export type AgentTraceResponse = {
  * ApiType
  */
 export type ApiType = 'chat' | 'response' | 'anthropic';
+
+/**
+ * ApprovalsRow
+ *
+ * 未决审批快照. 每个回合结束发一条, **空列表表示已无未决**, 后者覆盖前者.
+ *
+ * 原样携带 AG-UI 中断: 前端既用它渲染审批入口, 也把它交给 runtime 完成 `resume`.
+ */
+export type ApprovalsRow = {
+    /**
+     * Seq
+     */
+    seq?: number | null;
+    /**
+     * At
+     */
+    at?: string;
+    /**
+     * Type
+     */
+    type: 'approvals';
+    /**
+     * Interrupts
+     */
+    interrupts: Array<Interrupt>;
+};
 
 /**
  * Body_install_plugin
@@ -510,6 +520,26 @@ export type BodyInstallPlugin = {
  * 刮削可复用的缓存种类. use_cache 为其集合: 含某项 = 该缓存生效, 不含 = 强制刷新该项.
  */
 export type CacheKind = 'metadata' | 'trans';
+
+/**
+ * CancelledRow
+ *
+ * 回合被显式终止.
+ */
+export type CancelledRow = {
+    /**
+     * Seq
+     */
+    seq?: number | null;
+    /**
+     * At
+     */
+    at?: string;
+    /**
+     * Type
+     */
+    type: 'cancelled';
+};
 
 /**
  * CleanupSubmission
@@ -742,6 +772,30 @@ export type DesktopResponse = {
  * 影片附属资源类型: 刮削写入 Resource, 整理时按库配置复制到库路径.
  */
 export type DownloadableResource = 'thumb' | 'poster' | 'extrafanart' | 'trailer';
+
+/**
+ * ErrorRow
+ *
+ * 回合异常; 文案直接进助手气泡.
+ */
+export type ErrorRow = {
+    /**
+     * Seq
+     */
+    seq?: number | null;
+    /**
+     * At
+     */
+    at?: string;
+    /**
+     * Type
+     */
+    type: 'error';
+    /**
+     * Message
+     */
+    message: string;
+};
 
 /**
  * FacetKind
@@ -1283,6 +1337,55 @@ export type HotSettings = {
         [key: string]: PluginConfig;
     };
 };
+
+/**
+ * Interrupt
+ *
+ * A pause carried inside ``RunFinishedEvent.outcome`` when the outcome is
+ * ``RunFinishedInterruptOutcome``. The client resumes
+ * by addressing this interrupt in the resume array of the next RunAgentInput.
+ */
+export type Interrupt = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Reason
+     */
+    reason: string;
+    /**
+     * Message
+     */
+    message?: string | null;
+    /**
+     * Toolcallid
+     */
+    toolCallId?: string | null;
+    /**
+     * Responseschema
+     */
+    responseSchema?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Expiresat
+     */
+    expiresAt?: string | null;
+    /**
+     * Metadata
+     */
+    metadata?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Subagentrunid
+     */
+    subagentRunId?: string | null;
+    [key: string]: unknown;
+};
+
+export type JsonValue = unknown;
 
 /**
  * LLMConfig
@@ -2597,6 +2700,34 @@ export type R18ImportSubmission = {
 };
 
 /**
+ * ReasoningDeltaRow
+ *
+ * 思考增量; `block_id` 取自协议的消息 id, 前端据此归块而不靠相邻关系.
+ */
+export type ReasoningDeltaRow = {
+    /**
+     * Seq
+     */
+    seq?: number | null;
+    /**
+     * At
+     */
+    at?: string;
+    /**
+     * Type
+     */
+    type: 'reasoning_delta';
+    /**
+     * Block Id
+     */
+    block_id: string;
+    /**
+     * Text
+     */
+    text: string;
+};
+
+/**
  * RefreshSubmission
  */
 export type RefreshSubmission = {
@@ -2662,6 +2793,55 @@ export type ReleaseResponse = {
      * Newer
      */
     newer: boolean;
+};
+
+/**
+ * RequestTokenUsage
+ *
+ * 单次模型请求的用量. `duration_ms` 是请求发出到响应收到的本地时间差, 不含工具执行.
+ */
+export type RequestTokenUsage = {
+    /**
+     * Input
+     */
+    input: number;
+    /**
+     * Cache Read
+     */
+    cache_read: number;
+    /**
+     * Cache Write
+     */
+    cache_write: number;
+    /**
+     * Output
+     */
+    output: number;
+    /**
+     * Duration Ms
+     */
+    duration_ms?: number | null;
+};
+
+/**
+ * RequestUsageRow
+ *
+ * 单次模型请求的用量; 该次响应一到即写行, 到达顺序即它在回合里的位置 (这次响应的正文与工具调用之后).
+ */
+export type RequestUsageRow = {
+    /**
+     * Seq
+     */
+    seq?: number | null;
+    /**
+     * At
+     */
+    at?: string;
+    /**
+     * Type
+     */
+    type: 'request_usage';
+    usage: RequestTokenUsage;
 };
 
 /**
@@ -3466,6 +3646,91 @@ export type TaskWorkerResponse = {
 };
 
 /**
+ * TextDeltaRow
+ *
+ * 正文增量; 归块同 `ReasoningDeltaRow`.
+ */
+export type TextDeltaRow = {
+    /**
+     * Seq
+     */
+    seq?: number | null;
+    /**
+     * At
+     */
+    at?: string;
+    /**
+     * Type
+     */
+    type: 'text_delta';
+    /**
+     * Block Id
+     */
+    block_id: string;
+    /**
+     * Text
+     */
+    text: string;
+};
+
+/**
+ * ToolCallRow
+ *
+ * 工具调用成形 (协议按增量传参, 这里已解析). 卡片的名字与参数由此行给出.
+ *
+ * `args` 在生成的 TS 类型里退化为 `unknown` (pydantic 的 `JsonValue` 无法表达到 schema),
+ * 类型层面的保证到后端为止.
+ */
+export type ToolCallRow = {
+    /**
+     * Seq
+     */
+    seq?: number | null;
+    /**
+     * At
+     */
+    at?: string;
+    /**
+     * Type
+     */
+    type: 'tool_call';
+    /**
+     * Tool Call Id
+     */
+    tool_call_id: string;
+    /**
+     * Name
+     */
+    name: string;
+    args: JsonValue;
+};
+
+/**
+ * ToolResultRow
+ *
+ * 工具回执. 名字与参数在同 id 的 `ToolCallRow`, 故本行只带结果 (续批的回合不会再报调用名).
+ */
+export type ToolResultRow = {
+    /**
+     * Seq
+     */
+    seq?: number | null;
+    /**
+     * At
+     */
+    at?: string;
+    /**
+     * Type
+     */
+    type: 'tool_result';
+    /**
+     * Tool Call Id
+     */
+    tool_call_id: string;
+    result: JsonValue;
+};
+
+/**
  * TrashSubmission
  */
 export type TrashSubmission = {
@@ -3500,6 +3765,60 @@ export type TrashSubmission = {
 };
 
 /**
+ * TurnTokenUsage
+ *
+ * `input` 是非缓存输入 (总量减去 cache_read/cache_write). pydantic-ai 的 `input_tokens` 含缓存, 此处拆开.
+ *
+ * 字段不给默认值: 回放行里的用量总是全字段, 前端因此可以直接参与算术.
+ */
+export type TurnTokenUsage = {
+    /**
+     * Input
+     */
+    input: number;
+    /**
+     * Cache Read
+     */
+    cache_read: number;
+    /**
+     * Cache Write
+     */
+    cache_write: number;
+    /**
+     * Output
+     */
+    output: number;
+    /**
+     * Requests
+     */
+    requests: number;
+};
+
+/**
+ * TurnUsageRow
+ *
+ * 回合收尾: 聚合用量归属当前助手消息, 同时标志本轮结束.
+ *
+ * 正文不在此行重复: 适配器对每段正文都发 `TEXT_MESSAGE_CONTENT`, 故正文必然已由
+ * `TextDeltaRow` 落盘, 无须回退到整段文本.
+ */
+export type TurnUsageRow = {
+    /**
+     * Seq
+     */
+    seq?: number | null;
+    /**
+     * At
+     */
+    at?: string;
+    /**
+     * Type
+     */
+    type: 'turn_usage';
+    usage: TurnTokenUsage;
+};
+
+/**
  * UpscaleSubmission
  */
 export type UpscaleSubmission = {
@@ -3519,6 +3838,30 @@ export type UpscaleSubmission = {
      * Type
      */
     type: 'upscale';
+};
+
+/**
+ * UserMessageRow
+ *
+ * 用户输入. 批准 / 拒绝只以 tool return 进模型上下文, 不产生此行的旁白.
+ */
+export type UserMessageRow = {
+    /**
+     * Seq
+     */
+    seq?: number | null;
+    /**
+     * At
+     */
+    at?: string;
+    /**
+     * Type
+     */
+    type: 'user_message';
+    /**
+     * Text
+     */
+    text: string;
 };
 
 /**
@@ -6666,8 +7009,8 @@ export type UpdateAgentSessionResponses = {
 
 export type UpdateAgentSessionResponse = UpdateAgentSessionResponses[keyof UpdateAgentSessionResponses];
 
-export type StreamAgentMessageData = {
-    body: AgentMessageRequest;
+export type GenerateAgentSessionTitleData = {
+    body: AgentSessionTitleRequest;
     path: {
         /**
          * Session Id
@@ -6675,143 +7018,26 @@ export type StreamAgentMessageData = {
         session_id: number;
     };
     query?: never;
-    url: '/api/agent/sessions/{session_id}/messages/stream';
+    url: '/api/agent/sessions/{session_id}/title';
 };
 
-export type StreamAgentMessageErrors = {
+export type GenerateAgentSessionTitleErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type StreamAgentMessageError = StreamAgentMessageErrors[keyof StreamAgentMessageErrors];
+export type GenerateAgentSessionTitleError = GenerateAgentSessionTitleErrors[keyof GenerateAgentSessionTitleErrors];
 
-export type StreamAgentMessageResponses = {
+export type GenerateAgentSessionTitleResponses = {
     /**
      * Successful Response
      */
-    200: unknown;
+    200: AgentSessionTitleResponse;
 };
 
-export type StreamAgentEventsData = {
-    body?: never;
-    path: {
-        /**
-         * Session Id
-         */
-        session_id: number;
-    };
-    query?: {
-        /**
-         * After
-         */
-        after?: number;
-    };
-    url: '/api/agent/sessions/{session_id}/events/stream';
-};
-
-export type StreamAgentEventsErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type StreamAgentEventsError = StreamAgentEventsErrors[keyof StreamAgentEventsErrors];
-
-export type StreamAgentEventsResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type StreamApproveAgentSqlData = {
-    body: AgentApproveRequest;
-    path: {
-        /**
-         * Session Id
-         */
-        session_id: number;
-    };
-    query?: never;
-    url: '/api/agent/sessions/{session_id}/approve/stream';
-};
-
-export type StreamApproveAgentSqlErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type StreamApproveAgentSqlError = StreamApproveAgentSqlErrors[keyof StreamApproveAgentSqlErrors];
-
-export type StreamApproveAgentSqlResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type StreamRejectAgentApprovalData = {
-    body: AgentRejectRequest;
-    path: {
-        /**
-         * Session Id
-         */
-        session_id: number;
-    };
-    query?: never;
-    url: '/api/agent/sessions/{session_id}/reject/stream';
-};
-
-export type StreamRejectAgentApprovalErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type StreamRejectAgentApprovalError = StreamRejectAgentApprovalErrors[keyof StreamRejectAgentApprovalErrors];
-
-export type StreamRejectAgentApprovalResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type CancelAgentTurnData = {
-    body?: never;
-    path: {
-        /**
-         * Session Id
-         */
-        session_id: number;
-    };
-    query?: never;
-    url: '/api/agent/sessions/{session_id}/cancel';
-};
-
-export type CancelAgentTurnErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type CancelAgentTurnError = CancelAgentTurnErrors[keyof CancelAgentTurnErrors];
-
-export type CancelAgentTurnResponses = {
-    /**
-     * Successful Response
-     */
-    200: AgentCancelResponse;
-};
-
-export type CancelAgentTurnResponse = CancelAgentTurnResponses[keyof CancelAgentTurnResponses];
+export type GenerateAgentSessionTitleResponse = GenerateAgentSessionTitleResponses[keyof GenerateAgentSessionTitleResponses];
 
 export type GetAgentTraceData = {
     body?: never;
@@ -7009,3 +7235,94 @@ export type GetSavedQueryResultResponses = {
 };
 
 export type GetSavedQueryResultResponse = GetSavedQueryResultResponses[keyof GetSavedQueryResultResponses];
+
+export type RunAgentAguiData = {
+    body?: never;
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: number;
+    };
+    query?: never;
+    url: '/api/agent/sessions/{session_id}/agui';
+};
+
+export type RunAgentAguiErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RunAgentAguiError = RunAgentAguiErrors[keyof RunAgentAguiErrors];
+
+export type RunAgentAguiResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type FollowAgentEventsData = {
+    body?: never;
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: number;
+    };
+    query?: {
+        /**
+         * After Seq
+         */
+        after_seq?: number;
+    };
+    url: '/api/agent/sessions/{session_id}/agui/events';
+};
+
+export type FollowAgentEventsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type FollowAgentEventsError = FollowAgentEventsErrors[keyof FollowAgentEventsErrors];
+
+export type FollowAgentEventsResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type CancelAguiTurnData = {
+    body?: never;
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: number;
+    };
+    query?: never;
+    url: '/api/agent/sessions/{session_id}/agui/cancel';
+};
+
+export type CancelAguiTurnErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CancelAguiTurnError = CancelAguiTurnErrors[keyof CancelAguiTurnErrors];
+
+export type CancelAguiTurnResponses = {
+    /**
+     * Successful Response
+     */
+    200: AgentCancelResponse;
+};
+
+export type CancelAguiTurnResponse = CancelAguiTurnResponses[keyof CancelAguiTurnResponses];

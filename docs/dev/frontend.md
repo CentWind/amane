@@ -62,7 +62,9 @@ Settings、任务提交、定时创建、metadata 编辑共用 `components/schem
 
 ## 对话通道
 
-`/` 的实现边界见 [agent.md](agent.md). 前端两点: 对话经由 `lib/agent/sse.ts` 手写 SSE, 不经 hey-api 也不经 `/ws`; 请求统一经由 `lib/api-token.ts` 的 `apiFetch` (纯透传, 只把 401 转成登录门, 鉴权用 HttpOnly cookie).
+`/` 的实现边界见 [agent.md](agent.md). 前端四点: 对话经 AG-UI (`@ag-ui/client` + `@assistant-ui/react-ag-ui`), 不经 hey-api 也不经 `/ws`; 请求统一经由 `lib/api-token.ts` 的 `apiFetch` (纯透传, 只把 401 转成登录门); 读 assistant-ui 线程状态的 hook (`useAuiState` / `useAgUi*`) 须在 `AssistantRuntimeProvider` 之内 — 持有 provider 的那个组件读不到, 要另起子组件; 展示只认回放行 — `lib/agent/trace.ts::foldTrace` 的产物直接渲染, 本页发起的回合也跟随 `.../agui/events` (从 `after_seq` 接上, 回合未收尾时重开), 运行时的消息虽同步同一份 fold 但不参与渲染, 因此直播与刷新同形, 决不允许另建一份消息状态.
+
+渲染侧的流式提示按「回合是否在跑」推导, 不来自部件状态: 末段正文带光标, 未拿到回执的工具卡片显示转圈, 思考折叠块同理. 用量与回合总计都是该轮消息里的部件, 保留在各轮轮末.
 
 ## 实时与状态
 
@@ -72,7 +74,7 @@ Settings、任务提交、定时创建、metadata 编辑共用 `components/schem
 |------|--------|
 | 列表 / 详情 | TanStack Query (invalidate) |
 | 高频流 (进度 / 日志) | Zustand |
-| 对话增量 | SSE (与 WS 正交) |
+| 对话增量 | AG-UI 事件流 (与 WS 正交) |
 | 导航态 (筛选 / 排序 / page / view) | URL search |
 | 列表密度 / 列宽 / 主题 / 播放源顺序 / 列表默认参数 | Zustand (`amane-web`) |
 

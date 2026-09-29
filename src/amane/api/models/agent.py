@@ -3,12 +3,13 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from ...agent.rows import UiRow
 from ...config import AgentThinkingMode
-from ...db.models import AgentSessionStatus, SavedQueryEntity
+from ...db.models import DEFAULT_SESSION_TITLE, AgentSessionStatus, SavedQueryEntity
 
 
 class AgentSessionCreateRequest(BaseModel):
-    title: str = Field(default="新会话", min_length=1, max_length=200)
+    title: str = Field(default=DEFAULT_SESSION_TITLE, min_length=1, max_length=200)
 
 
 class AgentSessionUpdateRequest(BaseModel):
@@ -28,28 +29,23 @@ class AgentSessionResponse(BaseModel):
     updated_at: datetime
 
 
+class AgentSessionTitleRequest(BaseModel):
+    """首条用户输入: 标题只依据它生成."""
+
+    prompt: str = Field(min_length=1, max_length=4000)
+
+
+class AgentSessionTitleResponse(BaseModel):
+    title: str
+
+
 class AgentSessionListResponse(BaseModel):
     items: list[AgentSessionResponse]
 
 
-class AgentMessageRequest(BaseModel):
-    content: str = Field(min_length=1, max_length=32_000)
-
-
-class AgentApproveRequest(BaseModel):
-    """一次可批多项; 服务端顺序执行后只开一轮模型 follow-up."""
-
-    approval_ids: list[str] = Field(min_length=1, max_length=64)
-    slow_timeout_ms: int = Field(default=60_000, ge=1000, le=300_000)
-
-
-class AgentRejectRequest(BaseModel):
-    approval_id: str
-
-
 class AgentTraceResponse(BaseModel):
     meta: dict[str, Any]
-    events: list[dict[str, Any]]
+    events: list[UiRow]
     turn_running: bool = False
     last_seq: int = 0
 
