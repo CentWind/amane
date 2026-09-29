@@ -45,7 +45,7 @@ Android 端是**远程客户端**: 服务端 (FastAPI + SQLite + 运行期加载
 ## 平台功能
 
 - **主文档加载失败**: 显示原生错误页 (重试 / 换服务器), 不使用 WebView 自带的错误页 — 局域网服务器关机会经常遇到.
-- **下拉刷新**: `SwipeRefreshLayout` 包住 WebView, 松开即 `reload()`, 加载结束或失败时收起指示器, 全屏播放期间禁用. 手势优先级低于页面内部滚动: `SwipeRefreshLayout` 只依据 WebView 自身的滚动位置, 而 SPA 的滚动多在内部容器里, 因此页面在 `touchstart` 实测触点处还有没有可向上滚的内容并经桥推送至壳, 由壳在手势起点决定是否接管 (`web/src/lib/pull-refresh.ts`).
+- **下拉刷新**: `SwipeRefreshLayout` 包住 WebView, 松开即 `reload()`, 加载结束或失败时收起指示器, 全屏播放期间禁用. 接管需同时满足两条, 缺一都会误触: 触点处已无法向上滚动 — `SwipeRefreshLayout` 只依据 WebView 自身的滚动位置, 而 SPA 的滚动多在内部容器里 (那里恒为 0), 该判据因此由页面在 `touchstart` 实测并经桥推送至壳 (`web/src/lib/pull-refresh.ts`); 纵向位移压过横向 — 基类只比较纵位移是否越过 touchSlop, 横向滑动伴随的纵向偏移会被当成下拉, 方向改由 `AxisLockSwipeRefreshLayout` 在手势起手处判定.
 - **文件选择**: WebView 自身不实现文件选择器, `<input type="file">` 必须由系统选择器接管.
 - **下载**: `Content-Disposition: attachment` 交给 `DownloadManager`; 它在独立进程, 不共享 cookie 罐, 因此显式写入 `Cookie` 请求头. 附件型 `window.open` 同样交给它, 真页面才另起 `PopupActivity`.
 - **全屏视频**: `onShowCustomView` 的自定义视图 (`<video>` 与页面自己的 Fullscreen API 都走这条路), 同时收起系统栏并把方向锁到传感器横屏, 期间根容器的 inset 内边距归零; 返回键先请求页面退出全屏, 超时未退出则按原生方式收起; 全屏期间按 Home 键切换为画中画.
@@ -65,7 +65,7 @@ Android 端是**远程客户端**: 服务端 (FastAPI + SQLite + 运行期加载
 
 ## 打包与分发
 
-**APP 版本独立于服务端与桌面端**: 唯一来源是 `androidapp/version.txt`, 构建脚本与 Gradle 都读取它, `versionName` 与 `versionCode` 由 semver 推导; `versionCode` 必须随版本单调递增 — Android 拒绝降级覆盖安装. 签名配置读取 `androidapp/keystore.properties` (不入库), 缺席时回退到 debug 包; CI 经仓库 secret 提供同一份密钥.
+**APP 版本独立于服务端与桌面端**: 唯一来源是 `androidapp/version.txt`, 构建脚本与 Gradle 都读取它, `versionName` 与 `versionCode` 由 semver 推导; `versionCode` 必须随版本单调递增 — Android 拒绝降级覆盖安装. 签名密钥由 CI 从仓库 secret 写入 `androidapp/keystore.properties` (不入库), 只此一份且必须在仓库外备份: 密钥缺失、更换或退回 debug 密钥都会让产物签名与已装版本不同, 用户只能卸载重装, 服务器列表与 token (app 私有存储) 一并丢失. CI 在密钥缺席时直接失败, 打包后再校验产物未使用 debug 证书; 只有本机构建才回退到 debug 包.
 
 发版**完全独立**: 只有 `app-` 前缀的 tag 触发 APK 构建与 Release, 本体的 `v*` 不产出 APK — 本体发版通常不含 APP 变更, 每次都附一份 APK 会让下载的人以为 APP 也更新了. 这些 tag 解析不出版本, 本体的更新检查会跳过它们 (检查读取发布列表而不是 `/releases/latest`, 见 `src/amane/release.py`); APP 发布也不占用 Releases 页的 Latest 徽标. 分发方式是 GitHub Release 上的 APK 侧载; 应用商店对本项目的媒体内容域不可行, 因此不引入 Play 相关的签名托管与更新机制.
 
