@@ -116,8 +116,16 @@ class AgentService:
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await task
+        # 回合已取消, 不会再新增未保留预设; 这些行随会话删除且删除路径不回传 id, 故先快照供缓存失效
+        ephemeral_ids = [
+            q.id
+            for q in await self.repo.list_saved_queries(session_id=session_id)
+            if q.id is not None and not q.persisted
+        ]
         ok = await self.repo.delete_agent_session(session_id)
         if ok:
+            for query_id in ephemeral_ids:
+                self.cache.invalidate(query_id)
             self._stores.pop(session_id, None)
             delete_session_dir(self.data_dir, session_id)
         return ok

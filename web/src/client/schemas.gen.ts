@@ -5805,6 +5805,101 @@ export const RoutineTypeSchema = {
     title: 'RoutineType'
 } as const;
 
+export const SavedQueryBatchDeleteResponseSchema = {
+    properties: {
+        deleted: {
+            type: 'integer',
+            title: 'Deleted',
+            description: '成功删除的数量'
+        },
+        missing: {
+            type: 'integer',
+            title: 'Missing',
+            description: '不存在的 id 数量'
+        }
+    },
+    type: 'object',
+    required: [
+        'deleted',
+        'missing'
+    ],
+    title: 'SavedQueryBatchDeleteResponse'
+} as const;
+
+export const SavedQueryBatchIdsRequestSchema = {
+    properties: {
+        ids: {
+            items: {
+                type: 'integer'
+            },
+            type: 'array',
+            maxItems: 1000,
+            minItems: 1,
+            title: 'Ids',
+            description: '查询预设 ID 列表'
+        }
+    },
+    type: 'object',
+    required: [
+        'ids'
+    ],
+    title: 'SavedQueryBatchIdsRequest'
+} as const;
+
+export const SavedQueryBatchPersistResponseSchema = {
+    properties: {
+        persisted: {
+            type: 'integer',
+            title: 'Persisted',
+            description: '找到并置为已保留的数量 (已保留的也计入, 幂等)'
+        },
+        missing: {
+            type: 'integer',
+            title: 'Missing',
+            description: '不存在的 id 数量'
+        }
+    },
+    type: 'object',
+    required: [
+        'persisted',
+        'missing'
+    ],
+    title: 'SavedQueryBatchPersistResponse'
+} as const;
+
+export const SavedQueryCreateRequestSchema = {
+    properties: {
+        name: {
+            type: 'string',
+            maxLength: 200,
+            minLength: 1,
+            title: 'Name'
+        },
+        description: {
+            type: 'string',
+            maxLength: 2000,
+            title: 'Description',
+            default: ''
+        },
+        sql: {
+            type: 'string',
+            minLength: 1,
+            title: 'Sql'
+        },
+        entity: {
+            $ref: '#/components/schemas/SavedQueryEntity'
+        }
+    },
+    type: 'object',
+    required: [
+        'name',
+        'sql',
+        'entity'
+    ],
+    title: 'SavedQueryCreateRequest',
+    description: '手动创建: 名称 / 描述 / SQL 与类型; 归属与保留态由服务端固定 (无会话, 已保留).'
+} as const;
+
 export const SavedQueryEntitySchema = {
     type: 'string',
     enum: [
@@ -5843,6 +5938,10 @@ export const SavedQueryResponseSchema = {
             type: 'string',
             title: 'Name'
         },
+        description: {
+            type: 'string',
+            title: 'Description'
+        },
         sql: {
             type: 'string',
             title: 'Sql'
@@ -5880,6 +5979,7 @@ export const SavedQueryResponseSchema = {
     required: [
         'id',
         'name',
+        'description',
         'sql',
         'entity',
         'session_id',
@@ -5951,20 +6051,34 @@ export const SavedQueryUpdateRequestSchema = {
             ],
             title: 'Name'
         },
-        persisted: {
+        description: {
             anyOf: [
                 {
-                    type: 'boolean'
+                    type: 'string',
+                    maxLength: 2000
                 },
                 {
                     type: 'null'
                 }
             ],
-            title: 'Persisted'
+            title: 'Description'
+        },
+        sql: {
+            anyOf: [
+                {
+                    type: 'string',
+                    minLength: 1
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Sql'
         }
     },
     type: 'object',
-    title: 'SavedQueryUpdateRequest'
+    title: 'SavedQueryUpdateRequest',
+    description: '仅名称 / 描述 / SQL 三项, 未知键被忽略; 显式 null 一律 422, 省略键才是「不更新」.\n\n字段不从 DB 模型派生: ``create_partial_model`` 会丢弃 ``StringConstraints``;\n约束别名与创建请求共用.'
 } as const;
 
 export const ScanModeSchema = {

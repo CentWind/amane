@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from typing import Unpack
+
 from sqlmodel import col, select
 
 from ..models import DEFAULT_SESSION_TITLE, AgentSession, AgentSessionStatus, SavedQuery, SavedQueryEntity
-from ..repo_types import _utcnow
+from ..repo_types import SavedQueryUpdates, _utcnow
 from .base import RepositoryMixinBase
 
 
@@ -74,6 +76,7 @@ class AgentRepoMixin(RepositoryMixinBase):
         name: str,
         sql: str,
         entity: SavedQueryEntity,
+        description: str = "",
         session_id: int | None = None,
         persisted: bool = False,
     ) -> SavedQuery:
@@ -82,6 +85,7 @@ class AgentRepoMixin(RepositoryMixinBase):
                 name=name,
                 sql=sql,
                 entity=entity,
+                description=description,
                 session_id=session_id,
                 persisted=persisted,
             )
@@ -110,32 +114,45 @@ class AgentRepoMixin(RepositoryMixinBase):
     async def update_saved_query(
         self,
         query_id: int,
-        *,
-        name: str | None = None,
-        persisted: bool | None = None,
+        **updates: Unpack[SavedQueryUpdates],
     ) -> SavedQuery | None:
         async with self._session() as session:
             row = await session.get(SavedQuery, query_id)
             if row is None:
                 return None
-            if name is not None:
-                row.name = name
-            if persisted is not None:
-                row.persisted = persisted
-                if persisted:
-                    # persist 后与会话解耦, 删会话时须保留.
-                    row.session_id = None
+            if "name" in updates:
+                row.name = updates["name"]
+            if "description" in updates:
+                row.description = updates["description"]
+            if "sql" in updates:
+                row.sql = updates["sql"]
             row.updated_at = _utcnow()
             session.add(row)
             await session.commit()
             await session.refresh(row)
             return row
 
-    async def delete_saved_query(self, query_id: int) -> bool:
+    async def delete_saved_queries(self, ids: list[int]) -> tuple[int, int]:
+        """重复 id 只处理一次; 不存在的 id 计入 missing."""
+        unique = list(dict.fromkeys(ids))
         async with self._session() as session:
-            row = await session.get(SavedQuery, query_id)
-            if row is None:
-                return False
-            await session.delete(row)
+            rows = (await session.exec(select(SavedQuery).where(col(SavedQuery.id).in_(unique)))).all()
+            for row in rows:
+                await session.delete(row)
             await session.commit()
-            return True
+            deleted = len(rows)
+            return deleted, len(unique) - deleted
+
+    async def persist_saved_queries(self, ids: list[int]) -> tuple[int, int]:
+        """置为已保留并解绑会话; 重复 id 只处理一次; 幂等: 已保留的行计入 persisted 且不重写."""
+        unique = list(dict.fromkeys(ids))
+        async with self._session() as session:
+            rows = (await session.exec(select(SavedQuery).where(col(SavedQuery.id).in_(unique)))).all()
+            for row in rows:
+                if not row.persisted or row.session_id is not None:
+                    row.persisted = True
+                    row.session_id = None
+                    row.updated_at = _utcnow()
+                    session.add(row)
+            await session.commit()
+            return len(rows), len(unique) - len(rows)
