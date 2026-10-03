@@ -134,7 +134,7 @@ handler 之间复用的阶段逻辑, 不是一条可跳步的总管线:
 
 ### 配置变更与退役
 
-配置变更不取消运行中任务. `_apply_rebuild_unlocked()` 构建新 worker 后调用旧 worker 的 `retire()`: 同步置 `is_main=False` 并唤醒轮询, 主循环退出且不再认领; 已认领任务继续运行; 新 worker 立即开始认领. 退役 worker 由后台 `drain()` 处理: 先等主循环退出 (在飞 claim 结算并登记), 再等活跃任务清零, 顺序不可交换; 清零后释放其 r18 句柄. 连续变更时多个退役 worker 可以并存.
+配置变更不取消运行中任务. `_apply_rebuild_unlocked()` 构建新 worker 后调用旧 worker 的 `retire()`: 同步置 `is_main=False` 并唤醒轮询, 主循环退出且不再认领; 已认领任务继续运行; 新 worker 立即开始认领. 退役 worker 由后台 `drain()` 处理: 先等主循环退出 (在飞 claim 结算并登记), 再等活跃任务清零, 顺序不可交换; 清零后释放其持有的 r18 句柄与浏览器池. 连续变更时多个退役 worker 可以并存.
 
 归属边界是**认领开始时刻**: 变更时在飞的那次 claim 仍属于旧 worker, 每次退役至多带走一个旧配置任务; PATCH 返回后开始的认领属于新 worker. 过渡期总并发为新旧 worker 上限之和; 长期挂起的任务会延迟退役 worker 的资源释放.
 

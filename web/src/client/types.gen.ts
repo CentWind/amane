@@ -515,6 +515,31 @@ export type BodyInstallPlugin = {
 };
 
 /**
+ * BrowserBackendName
+ */
+export type BrowserBackendName = 'off' | 'patchright' | 'camoufox' | 'solver';
+
+/**
+ * BrowserConfig
+ */
+export type BrowserConfig = {
+    backend?: BrowserBackendName;
+    /**
+     * Timeout
+     */
+    timeout?: number;
+    /**
+     * Solver Url
+     */
+    solver_url?: string;
+};
+
+/**
+ * BrowserMode
+ */
+export type BrowserMode = 'off' | 'auto' | 'always';
+
+/**
  * CacheKind
  *
  * 刮削可复用的缓存种类. use_cache 为其集合: 含某项 = 该缓存生效, 不含 = 强制刷新该项.
@@ -2317,10 +2342,7 @@ export type NetworkConfig = {
      * Max Clients
      */
     max_clients?: number;
-    /**
-     * Browser Timeout
-     */
-    browser_timeout?: number;
+    browser?: BrowserConfig;
     /**
      * Chunked Threshold
      */
@@ -3272,10 +3294,8 @@ export type SiteConfig = {
      * Use Proxy
      */
     use_proxy?: boolean;
-    /**
-     * Use Browser
-     */
-    use_browser?: boolean;
+    use_browser?: BrowserMode;
+    browser_backend?: BrowserBackendName | null;
     /**
      * Cookie
      */

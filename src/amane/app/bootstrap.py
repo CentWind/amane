@@ -87,6 +87,8 @@ class AppSession:
         await self.runtime.stop_workers()
         if self.runtime.playback_factory is not None:
             await self.runtime.playback_factory.aclose()
+        if self.runtime.browser is not None:
+            await self.runtime.browser.close()
         await self.runtime.web_client.close()
         if self.runtime.translation_cache is not None:
             await self.runtime.translation_cache.close()
@@ -240,6 +242,7 @@ async def start_app(config: ConfigManager | None = None) -> AppSession:
             proxy=hot.network.proxy,
             state=playback_state,
         ),
+        browser=stack.browser,
     )
     agent_service.bridge.safe_dirs = None if safe_dirs is None else list(safe_dirs)
     agent_service.bridge.watcher = watcher_service

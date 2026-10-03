@@ -295,8 +295,22 @@
             "description": "通过配置的代理发送请求"
           },
           "use_browser": {
-            "label": "使用浏览器",
-            "description": "使用无头浏览器抓取(尚未实现)"
+            "label": "浏览器策略",
+            "options": {
+              "off": "关闭",
+              "auto": "自适应",
+              "always": "始终"
+            }
+          },
+          "browser_backend": {
+            "label": "浏览器后端",
+            "description": "覆盖全局后端; off 表示该来源禁用浏览器",
+            "options": {
+              "off": "关闭",
+              "patchright": "Patchright",
+              "camoufox": "Camoufox",
+              "solver": "Solver 服务"
+            }
           },
           "cookie": {
             "label": "Cookie",
@@ -440,9 +454,25 @@
         "label": "最大连接数",
         "description": "连接池最大连接数"
       },
-      "browser_timeout": {
-        "label": "浏览器超时",
-        "description": "无头浏览器页面导航超时 (毫秒)"
+      "browser": {
+        "label": "浏览器渲染",
+        "backend": {
+          "label": "后端",
+          "options": {
+            "off": "关闭",
+            "patchright": "Patchright",
+            "camoufox": "Camoufox",
+            "solver": "Solver 服务"
+          }
+        },
+        "timeout": {
+          "label": "页面请求超时",
+          "description": "浏览器超时(毫秒)"
+        },
+        "solver_url": {
+          "label": "Solver 地址",
+          "description": "FlareSolverr 兼容服务地址, 仅 solver 后端使用"
+        }
       },
       "chunked_threshold": {
         "label": "分块阈值",

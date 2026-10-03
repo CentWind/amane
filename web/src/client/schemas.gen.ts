@@ -984,6 +984,51 @@ export const Body_install_pluginSchema = {
     title: 'Body_install_plugin'
 } as const;
 
+export const BrowserBackendNameSchema = {
+    type: 'string',
+    enum: [
+        'off',
+        'patchright',
+        'camoufox',
+        'solver'
+    ],
+    title: 'BrowserBackendName'
+} as const;
+
+export const BrowserConfigSchema = {
+    properties: {
+        backend: {
+            $ref: '#/components/schemas/BrowserBackendName',
+            default: 'off'
+        },
+        timeout: {
+            type: 'integer',
+            maximum: 120000,
+            minimum: 5000,
+            title: 'Timeout',
+            default: 30000
+        },
+        solver_url: {
+            type: 'string',
+            pattern: '^https?://.+',
+            title: 'Solver Url',
+            default: 'http://127.0.0.1:8191'
+        }
+    },
+    type: 'object',
+    title: 'BrowserConfig'
+} as const;
+
+export const BrowserModeSchema = {
+    type: 'string',
+    enum: [
+        'off',
+        'auto',
+        'always'
+    ],
+    title: 'BrowserMode'
+} as const;
+
 export const CacheKindSchema = {
     type: 'string',
     enum: [
@@ -2460,182 +2505,182 @@ export const HotSettingsSchema = {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     avsox: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     dahlia: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     dmm: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     faleno: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     fc2: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     fc2club: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     fc2ppvdb: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     freejavbt: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     getchu: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     gfriends: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     giga: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     iqqtv: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     jav321: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     javbus: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     javdb: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     javlibrary: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     kin8: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     mgstage: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     minnano: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     official: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     prestige: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     r18dev: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     theporndb: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     wikipedia: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     },
                     xcity: {
                         cookie: {},
                         official_routes: {},
                         rate_limit: 2,
-                        use_browser: false,
+                        use_browser: 'auto',
                         use_proxy: true
                     }
                 }
@@ -2679,7 +2724,11 @@ export const HotSettingsSchema = {
                 timeout: 10,
                 max_retries: 3,
                 max_clients: 50,
-                browser_timeout: 15000,
+                browser: {
+                    backend: 'off',
+                    solver_url: 'http://127.0.0.1:8191',
+                    timeout: 30000
+                },
                 chunked_threshold: 2097152,
                 chunk_size: 1048576,
                 concurrency: 10,
@@ -4901,13 +4950,8 @@ export const NetworkConfigSchema = {
             default: 50,
             'x-hidden': true
         },
-        browser_timeout: {
-            type: 'integer',
-            maximum: 120000,
-            minimum: 5000,
-            title: 'Browser Timeout',
-            default: 15000,
-            'x-hidden': true
+        browser: {
+            $ref: '#/components/schemas/BrowserConfig'
         },
         chunked_threshold: {
             type: 'integer',
@@ -6556,9 +6600,18 @@ export const SiteConfigSchema = {
             default: true
         },
         use_browser: {
-            type: 'boolean',
-            title: 'Use Browser',
-            default: false,
+            $ref: '#/components/schemas/BrowserMode',
+            default: 'auto'
+        },
+        browser_backend: {
+            anyOf: [
+                {
+                    $ref: '#/components/schemas/BrowserBackendName'
+                },
+                {
+                    type: 'null'
+                }
+            ],
             'x-hidden': true
         },
         cookie: {

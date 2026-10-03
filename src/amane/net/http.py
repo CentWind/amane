@@ -1,10 +1,8 @@
 """curl_cffi TLS 指纹模拟 + 限速 + 重试; 爬虫 / 图片 / Emby 等对外 HTTP 统一经此模块."""
 
 import asyncio
-import os
 import random
 import time
-from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
 import aiofiles
@@ -15,10 +13,10 @@ from curl_cffi import CurlError
 from curl_cffi.requests import AsyncSession, BrowserTypeLiteral, Response
 
 from .errors import FailureKind, RequestError, RequestFailure
-from .recording import get_bound_http_recorder, reset_skip_http_body, set_skip_http_body
+from .recording import get_bound_http_recorder, skip_body_recording
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Mapping
+    from collections.abc import Mapping
     from pathlib import Path
 
     from curl_cffi.requests.session import HttpMethod
@@ -26,16 +24,6 @@ if TYPE_CHECKING:
     from ..config import SiteConfig
 
 logger = structlog.get_logger()
-
-
-@contextmanager
-def _skip_body_recording() -> Iterator[None]:
-    """get_bytes / download 跳过 body 落盘 (仅记 meta)."""
-    token = set_skip_http_body(True)
-    try:
-        yield
-    finally:
-        reset_skip_http_body(token)
 
 
 _IMPERSONATE_OPTIONS: tuple[BrowserTypeLiteral, ...] = (
@@ -173,6 +161,10 @@ class WebClient:
             timeout=timeout,
             impersonate=random.choice(_IMPERSONATE_OPTIONS),
         )
+
+    async def acquire(self, url: str) -> None:
+        """按 host 取得限速许可. 供不经 ``request`` 的通道 (浏览器渲染 / solver) 复用同一限速."""
+        await self._limiters.get(httpx.URL(url).host).acquire()
 
     async def request(
         self,
@@ -352,7 +344,7 @@ class WebClient:
         cookies: dict[str, str] | None = None,
         use_proxy: bool = True,
     ) -> bytes:
-        with _skip_body_recording():
+        with skip_body_recording():
             resp = await self.request("GET", url, headers=headers, cookies=cookies, use_proxy=use_proxy)
         return resp.content
 
@@ -511,62 +503,3 @@ class WebClient:
             await self._session.close()
         except Exception as e:
             logger.debug("session close error (ignored)", error=str(e))
-
-
-class BrowserClient:
-    """延迟初始化: 浏览器仅在首次使用时启动."""
-
-    def __init__(self, *, headless: bool = True, default_timeout: float = 30000):
-        self._headless = headless
-        self._default_timeout = default_timeout
-        self._playwright = None
-        self._browser = None
-        self._lock = asyncio.Lock()
-
-    async def _ensure_browser(self):
-        if self._browser is not None:
-            return
-        async with self._lock:
-            if self._browser is not None:
-                return
-            from patchright.async_api import async_playwright
-
-            self._playwright = await async_playwright().start()
-            self._browser = await self._playwright.chromium.launch(
-                channel="chrome",
-                headless=self._headless if os.getenv("AMANE_SHOW_BROWSER") is None else False,
-                args=["--disable-blink-features=AutomationControlled"],
-            )
-
-    async def get_page(
-        self,
-        url: str,
-        *,
-        wait_for: str | None = None,
-        timeout: float | None = None,
-    ) -> tuple[str | None, str]:
-        """成功返回 ``(html, "")``, 失败返回 ``(None, 错误信息)``."""
-        effective_timeout = timeout if timeout is not None else self._default_timeout
-        try:
-            await self._ensure_browser()
-            assert self._browser is not None  # _ensure_browser 已保证
-            page = await self._browser.new_page()
-            try:
-                await page.goto(url, timeout=effective_timeout, wait_until="domcontentloaded")
-                if wait_for:
-                    await page.wait_for_selector(wait_for, timeout=effective_timeout)
-                content = await page.content()
-                return content, ""
-            finally:
-                await page.close()
-        except Exception as e:
-            logger.error("browser page fetch failed", url=url, error=str(e))
-            return None, str(e)
-
-    async def close(self) -> None:
-        if self._browser is not None:
-            await self._browser.close()
-            self._browser = None
-        if self._playwright is not None:
-            await self._playwright.stop()
-            self._playwright = None

@@ -1,4 +1,5 @@
 import contextlib
+import importlib
 import os
 import tempfile
 import tomllib
@@ -23,6 +24,8 @@ from ..crawlers.site_roles import (
 from ..crawlers.sites.official import Manufacturer
 from ..enums import (
     ApiType,
+    BrowserBackendName,
+    BrowserMode,
     DownloadableResource,
     Language,
     MetadataField,
@@ -227,8 +230,27 @@ class ColdSettings(BaseSettings):
 class SiteConfig(BaseModel):
     base_url: str | None = None
     use_proxy: bool = True
-    use_browser: bool = Field(default=False, json_schema_extra={"x-hidden": True})
+    use_browser: BrowserMode = BrowserMode.AUTO
+    """``auto`` 先直连, 首次命中 Cloudflare 挑战后该来源改用浏览器; 后端由 ``network.browser.backend`` 决定."""
+    browser_backend: BrowserBackendName | None = Field(default=None, json_schema_extra={"x-hidden": True})
+    """覆盖 ``network.browser.backend``; 仅在改用浏览器后生效, ``off`` 表示该来源禁用浏览器."""
     cookie: dict[str, str] = {}
+
+    @field_validator("use_browser", mode="before")
+    @classmethod
+    def _migrate_use_browser_bool(cls, v: object) -> object:
+        """旧布尔值: true → always, false → off."""
+        if v is True:
+            return BrowserMode.ALWAYS
+        if v is False:
+            return BrowserMode.OFF
+        return v
+
+    @field_validator("browser_backend")
+    @classmethod
+    def _override_engine_available(cls, v: BrowserBackendName | None) -> BrowserBackendName | None:
+        return None if v is None else _require_browser_engine(v)
+
     api_token: str | None = Field(default=None, json_schema_extra={"x-visible-keys": _SITES_WITH_API_TOKEN})
     official_routes: dict[str, Manufacturer] = Field(
         default_factory=dict, json_schema_extra={"x-visible-keys": [SiteName.OFFICIAL]}
@@ -443,13 +465,38 @@ class WatermarkConfig(BaseModel):
         return _complete_frozen_dict(v, dict.fromkeys(WatermarkKind, WatermarkCorner.TOP_LEFT))
 
 
+def _require_browser_engine(backend: BrowserBackendName) -> BrowserBackendName:
+    """本地引擎不在当前分发时拒绝配置, 不等到启动浏览器才报 ModuleNotFoundError."""
+    module = {BrowserBackendName.PATCHRIGHT: "patchright", BrowserBackendName.CAMOUFOX: "camoufox"}.get(backend)
+    if module is None:
+        return backend
+    try:
+        importlib.import_module(module)
+    except ImportError as exc:
+        raise ValueError(f"浏览器后端 {backend} 不可用: 当前分发未包含 {module}, 请改用 solver") from exc
+    return backend
+
+
+class BrowserConfig(BaseModel):
+    backend: BrowserBackendName = BrowserBackendName.OFF
+    timeout: int = Field(default=30000, ge=5000, le=120000)
+    """页面导航默认超时 (毫秒); 单次渲染可覆盖."""
+    solver_url: str = Field(default="http://127.0.0.1:8191", pattern=r"^https?://.+")
+    """FlareSolverr 兼容服务地址; 仅 ``solver`` 后端使用. 服务不允许暴露到公网."""
+
+    @field_validator("backend")
+    @classmethod
+    def _engine_available(cls, v: BrowserBackendName) -> BrowserBackendName:
+        return _require_browser_engine(v)
+
+
 class NetworkConfig(BaseModel):
     proxy: str | None = None
     timeout: float = Field(default=10.0, ge=5.0, le=300.0)
     max_retries: int = Field(default=3, ge=0, le=10)
     """实为总尝试次数 (``3`` → 最多发 3 次请求), 名字为兼容既有配置保留; 0 表示不重试."""
     max_clients: int = Field(default=50, ge=5, le=500, json_schema_extra={"x-hidden": True})
-    browser_timeout: int = Field(default=15000, ge=5000, le=120000, json_schema_extra={"x-hidden": True})
+    browser: BrowserConfig = Field(default_factory=BrowserConfig)
 
     chunked_threshold: int = Field(default=2 * 1024**2, ge=512 * 1024, le=100 * 1024**2)
     """超过此大小 (字节) 启用分块并发下载."""
@@ -658,6 +705,23 @@ class HotSettings(BaseModel):
             logging = {}
             data["logging"] = logging
         logging.setdefault("debug_capture", flag)
+        return data
+
+    @model_validator(mode="before")
+    @classmethod
+    def _migrate_browser_timeout(cls, data: Any) -> Any:
+        """network.browser_timeout → network.browser.timeout."""
+        if not isinstance(data, dict):
+            return data
+        network = data.get("network")
+        if not isinstance(network, dict) or "browser_timeout" not in network:
+            return data
+        timeout = network.pop("browser_timeout")
+        browser = network.get("browser")
+        if not isinstance(browser, dict):
+            browser = {}
+            network["browser"] = browser
+        browser.setdefault("timeout", timeout)
         return data
 
     scraping: ScrapingConfig = ScrapingConfig()

@@ -109,3 +109,25 @@ class TestConfigRebuild:
         crawler = await runtime.factory.get("r18dev")
         assert crawler is not None
         assert crawler._db is runtime.r18_db
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_browser_change_rebuilds_pool_and_unrelated_change_keeps_it(self, client: AsyncClient, app):
+        runtime = app.state.runtime
+        pool = runtime.browser
+        assert pool is not None
+
+        resp = await client.patch("config", json={"network": {"browser": {"backend": "solver"}}})
+        assert resp.status_code == 200
+
+        rebuilt = runtime.browser
+        assert rebuilt is not None
+        assert rebuilt is not pool
+
+        # 旧池随使用它的退役 worker 排空后关闭
+        await asyncio.gather(*list(runtime._retire_tasks), return_exceptions=True)
+        assert pool._closed is True
+
+        resp = await client.patch("config", json={"worker": {"concurrency": 4}})
+        assert resp.status_code == 200
+        assert runtime.browser is rebuilt
+        assert rebuilt._closed is False
