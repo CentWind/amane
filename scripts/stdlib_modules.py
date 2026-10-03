@@ -15,8 +15,12 @@ from __future__ import annotations
 import importlib.util
 import sys
 
-EXCLUDE = frozenset({"idlelib", "tkinter", "turtle", "turtledemo", "ensurepip"})
-"""GUI 与安装器: 依赖无法随包提供的产物 (``_tkinter`` 原生扩展、Tcl/Tk 数据、ensurepip 的 wheel 副本)."""
+EXCLUDE = frozenset({"idlelib", "tkinter", "turtle", "turtledemo", "ensurepip", "antigravity", "this"})
+"""GUI 与安装器: 依赖无法随包提供的产物 (``_tkinter`` 原生扩展、Tcl/Tk 数据、ensurepip 的 wheel 副本).
+
+``antigravity`` 与 ``this`` 是导入时执行副作用的彩蛋模块: ``collect_submodules`` 对非包模块实际执行
+导入, 两者会打开浏览器或打印 Zen. 应用不使用这两个模块.
+"""
 
 
 def stdlib_module_names() -> tuple[str, ...]:
