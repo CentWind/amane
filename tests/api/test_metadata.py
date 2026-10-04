@@ -6,7 +6,7 @@ import pytest
 import pytest_asyncio
 from PIL import Image
 
-from amane.db.models import MediaFileStatus
+from amane.db.models import MediaFileStatus, Metadata
 from amane.enums import ActorGender
 
 if TYPE_CHECKING:
@@ -97,6 +97,8 @@ class TestMetadataHttp:
         props = resp.json()["properties"]
         for key in ("title", "actors", "poster_urls", "scores", "external_ids", "source_urls"):
             assert key in props
+        # 锁列由 PUT /locks 管理, 不经 PATCH 写入.
+        assert "locked_fields" not in props
 
     @pytest.mark.asyncio(loop_scope="function")
     async def test_merge_http(self, client: AsyncClient, repo: Repository):
@@ -111,6 +113,7 @@ class TestMetadataHttp:
         assert resp.status_code == 200
         assert resp.json()["title"] == "dmm title"
         assert resp.json()["field_sources"]["title"] == "dmm"
+        assert resp.json()["locked_fields"] == ["title"]
 
         none_meta = await repo.upsert_metadata(
             number="ABC-004", field_sources={"title": "javdb"}, raw={"javdb": {"title": None}}
@@ -147,6 +150,8 @@ class TestMetadataHttp:
         assert len(data["poster_urls"]) == 1
         assert data["poster_urls"][0].startswith("/api/resources/")
         assert data["thumb_urls"] == ["https://example.com/t.jpg"]
+        # 裁切写入 poster_urls 并自动锁定.
+        assert data["locked_fields"] == ["poster_urls"]
 
         no_thumb = await repo.upsert_metadata(number="CROP-003", poster_urls=["https://example.com/p.jpg"])
         assert no_thumb.id is not None
@@ -163,3 +168,57 @@ class TestMetadataHttp:
         assert (
             await client.post("metadata/99999/crop-poster", json={"left": 0, "top": 0, "right": 10, "bottom": 10})
         ).status_code == 404
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_locks_http(self, client: AsyncClient, repo: Repository):
+        meta = await repo.upsert_metadata(number="LOCK-101", title="X")
+        assert meta.id is not None
+
+        locked = await client.put(f"metadata/{meta.id}/locks", json={"fields": ["title", "poster_urls"]})
+        assert locked.status_code == 200
+        assert set(locked.json()["locked_fields"]) == {"title", "poster_urls"}
+
+        # 重复值按集合去重, 顺序稳定.
+        dup = await client.put(f"metadata/{meta.id}/locks", json={"fields": ["poster_urls", "title", "title"]})
+        assert dup.status_code == 200
+        assert dup.json()["locked_fields"] == ["title", "poster_urls"]
+
+        # 手动 PATCH 无视锁, 并把写入字段并入锁.
+        patched = await client.patch(f"metadata/{meta.id}", json={"title": "Manual"})
+        assert patched.status_code == 200
+        assert patched.json()["title"] == "Manual"
+        assert set(patched.json()["locked_fields"]) == {"title", "poster_urls"}
+
+        # 自动刮削写入跳过锁定字段, 未锁定字段正常更新.
+        updated = await repo.upsert_metadata(number="LOCK-101", title="Scraped", actors=["A"])
+        assert updated.title == "Manual"
+        body = (await client.get(f"metadata/{meta.id}")).json()["metadata"]
+        assert body["actors"] == ["A"]
+
+        cleared = await client.put(f"metadata/{meta.id}/locks", json={"fields": []})
+        assert cleared.status_code == 200
+        assert cleared.json()["locked_fields"] == []
+
+        bad = await client.put(f"metadata/{meta.id}/locks", json={"fields": ["bogus"]})
+        assert bad.status_code == 422
+        assert (await client.put("metadata/9999/locks", json={"fields": []})).status_code == 404
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_response_drops_unknown_locked_values(self, client: AsyncClient, repo: Repository):
+        """库内非法存量锁值不使读路径 500, 并去重."""
+        meta = await repo.upsert_metadata(number="LOCK-102")
+        assert meta.id is not None
+        async with repo._session() as session:
+            row = await session.get(Metadata, meta.id)
+            assert row is not None
+            row.locked_fields = ["title", "title", "bogus"]
+            session.add(row)
+            await session.commit()
+
+        detail = await client.get(f"metadata/{meta.id}")
+        assert detail.status_code == 200
+        assert detail.json()["metadata"]["locked_fields"] == ["title"]
+
+        listed = await client.get("metadata?search=LOCK-102")
+        assert listed.status_code == 200
+        assert listed.json()["items"][0]["locked_fields"] == ["title"]

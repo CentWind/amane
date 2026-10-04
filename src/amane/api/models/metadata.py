@@ -1,10 +1,10 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from ...db import Metadata
-from ...enums import ActorGender
+from ...enums import ActorGender, MetadataField
 from ...handlers import CacheKind
 from ...parsing import ContentType, Mosaic
 from ...utils.model import anyof_extras, create_partial_model, kv
@@ -12,6 +12,8 @@ from .comments import CommentResponse
 from .crop import CropBoxRequest
 from .media import MediaFileResponse
 from .user_tags import UserTagResponse
+
+_METADATA_FIELD_VALUES = frozenset(str(field) for field in MetadataField)
 
 
 class FilePhaseSummary(BaseModel):
@@ -50,6 +52,16 @@ class MetadataResponse(BaseModel):
     source_urls: dict = {}
     field_sources: dict = {}
     raw: dict = {}
+    locked_fields: list[MetadataField] = []
+
+    @field_validator("locked_fields", mode="before")
+    @classmethod
+    def _drop_unknown_locks(cls, value: object) -> object:
+        """非法存量锁值忽略."""
+        if not isinstance(value, list):
+            return []
+        return list(dict.fromkeys(item for item in value if isinstance(item, str) and item in _METADATA_FIELD_VALUES))
+
     file_count: int = 0
     file_phase: FilePhaseSummary = Field(default_factory=FilePhaseSummary)
     created_at: datetime | None = None
@@ -59,10 +71,10 @@ class MetadataResponse(BaseModel):
 if TYPE_CHECKING:
     type PartialMetadata = Metadata
 
-# 外部可写字段: 排除只读列 (id/number/时间戳) 与仅后端可写字段 (raw/field_sources 由刮削写入, 前端只读展示).
+# 外部可写字段: 排除只读列 (id/number/时间戳), 仅后端可写字段 (raw/field_sources 由刮削写入) 与锁列 (经 PUT locks 管理).
 PartialMetadata = create_partial_model(
     Metadata,
-    ignore_fields=("id", "number", "created_at", "updated_at", "raw", "field_sources"),
+    ignore_fields=("id", "number", "created_at", "updated_at", "raw", "field_sources", "locked_fields"),
     json_schema_extras={
         "extrafanart_urls": anyof_extras(kv({"v-x-long": True})),
         "release": anyof_extras(
@@ -96,6 +108,12 @@ class MetadataDetailResponse(BaseModel):
 
 class MergeRequest(BaseModel):
     selections: dict[str, str] = Field(description="field_name -> source_key 映射")
+
+
+class MetadataLocksRequest(BaseModel):
+    """整体替换锁定字段集合."""
+
+    fields: list[MetadataField] = Field(default_factory=list, description="锁定的字段集合; 空集解除全部锁定")
 
 
 class CropPosterRequest(CropBoxRequest):

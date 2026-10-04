@@ -52,6 +52,7 @@ from .metadata import (
     MetadataBatchScrapeResponse,
     MetadataDetailResponse,
     MetadataListResponse,
+    MetadataLocksRequest,
     MetadataResponse,
     MetadataUserTagsRequest,
     PartialMetadata,

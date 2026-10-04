@@ -1,6 +1,6 @@
 import asyncio
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pytest
 
@@ -9,6 +9,7 @@ from amane.db.models import (
     FacetRuleAction,
     MediaFileStatus,
     MediaSortField,
+    Metadata,
     MetadataSortField,
     RoutineType,
     SortOrder,
@@ -16,8 +17,15 @@ from amane.db.models import (
     TaskStatus,
     TaskType,
 )
-from amane.db.repo_types import _MEDIA_SORT_COLUMNS, _METADATA_SORT_COLUMNS, _TASK_SORT_COLUMNS, ActorBrowseParams
-from amane.enums import LibraryAutomation
+from amane.db.repo_types import (
+    _MEDIA_SORT_COLUMNS,
+    _METADATA_SORT_COLUMNS,
+    _TASK_SORT_COLUMNS,
+    ActorBrowseParams,
+    MetadataFields,
+    MetadataWriteMode,
+)
+from amane.enums import LibraryAutomation, MetadataField
 from amane.organize.path_templates import VIDEO_TEMPLATE_DEFAULT
 from amane.parsing import ContentType, Mosaic
 from tests.helpers import assert_exhaustive_enum
@@ -781,6 +789,207 @@ class TestMetadataRepo:
     async def test_get_media_by_metadata_id_empty(self, repo: Repository):
         result = await repo.get_media_by_metadata_id(9999)
         assert result == []
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_upsert_skips_locked_fields_and_updates_raw(self, repo: Repository):
+        meta = await repo.upsert_metadata(
+            number="LOCK-001",
+            title="Old",
+            actors=["A"],
+            poster_urls=["https://old/p.jpg"],
+            field_sources={"title": "javdb"},
+            raw={"javdb": {"title": "Old"}},
+        )
+        assert meta.id is not None
+        await repo.set_metadata_locks(meta.id, [MetadataField.TITLE, MetadataField.POSTER_URLS])
+
+        updated = await repo.upsert_metadata(
+            number="LOCK-001",
+            title="New",
+            actors=["B"],
+            poster_urls=["https://new/p.jpg"],
+            field_sources={"title": "dmm", "actors": "dmm"},
+            raw={"dmm": {"title": "New"}},
+        )
+
+        assert updated.title == "Old"
+        assert updated.poster_urls == ["https://old/p.jpg"]
+        assert updated.actors == ["B"]
+        # 锁定字段来源保留, 未锁定字段正常写入.
+        assert updated.field_sources == {"title": "javdb", "actors": "dmm"}
+        assert updated.raw == {"dmm": {"title": "New"}}
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_upsert_tolerates_unknown_locked_value(self, repo: Repository):
+        meta = await repo.upsert_metadata(number="LOCK-002", title="Old")
+        assert meta.id is not None
+        async with repo._session() as session:
+            row = await session.get(Metadata, meta.id)
+            assert row is not None
+            row.locked_fields = ["not-a-field", "title"]
+            session.add(row)
+            await session.commit()
+
+        updated = await repo.upsert_metadata(number="LOCK-002", title="New")
+
+        assert updated.title == "Old"
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_update_auto_mode_respects_locks(self, repo: Repository):
+        meta = await repo.upsert_metadata(number="LOCK-003", title="Old")
+        assert meta.id is not None
+        await repo.set_metadata_locks(meta.id, [MetadataField.TITLE])
+
+        updated = await repo.update_metadata(meta.id, title="New", plot="P")
+
+        assert updated is not None
+        assert updated.title == "Old"
+        assert updated.plot == "P"
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_update_manual_ignores_lock_and_auto_locks_written_fields(self, repo: Repository):
+        meta = await repo.upsert_metadata(number="LOCK-004", title="Old")
+        assert meta.id is not None
+        await repo.set_metadata_locks(meta.id, [MetadataField.ACTORS])
+
+        updated = await repo.update_metadata(
+            meta.id, mode=MetadataWriteMode.MANUAL, title="New", poster_urls=["https://p/1.jpg"]
+        )
+
+        assert updated is not None
+        assert updated.title == "New"
+        assert set(updated.locked_fields) == {"actors", "title", "poster_urls"}
+
+    @pytest.mark.parametrize(
+        ("updates", "expected_lock"),
+        [
+            ({"title": "X"}, "title"),
+            ({"scores": {"javdb": 4.5}}, "score"),
+            ({"extrafanart_urls": {"javdb": ["https://f/1.jpg"]}}, "extrafanart"),
+        ],
+    )
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_update_manual_auto_lock_maps_column_names(self, repo: Repository, updates: dict, expected_lock: str):
+        meta = await repo.upsert_metadata(number="LOCK-005")
+        assert meta.id is not None
+
+        updated = await repo.update_metadata(meta.id, mode=MetadataWriteMode.MANUAL, **updates)
+
+        assert updated is not None
+        assert updated.locked_fields == [expected_lock]
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_update_manual_does_not_lock_provenance_fields(self, repo: Repository):
+        meta = await repo.upsert_metadata(number="LOCK-006")
+        assert meta.id is not None
+
+        updated = await repo.update_metadata(
+            meta.id,
+            mode=MetadataWriteMode.MANUAL,
+            field_sources={"title": "javdb"},
+            raw={"javdb": {"title": "X"}},
+        )
+
+        assert updated is not None
+        assert updated.locked_fields == []
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_set_metadata_locks_replaces_and_orders(self, repo: Repository):
+        meta = await repo.upsert_metadata(number="LOCK-007", title="X")
+        assert meta.id is not None
+
+        locked = await repo.set_metadata_locks(meta.id, [MetadataField.SCORE, MetadataField.TITLE])
+        assert locked is not None
+        assert locked.locked_fields == ["title", "score"]
+        assert locked.updated_at == meta.updated_at
+
+        cleared = await repo.set_metadata_locks(meta.id, [])
+        assert cleared is not None
+        assert cleared.locked_fields == []
+
+        assert await repo.set_metadata_locks(9999, [MetadataField.TITLE]) is None
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_upsert_preserves_locked_source_when_incoming_empty(self, repo: Repository):
+        """本次来源为空也要保留锁定字段的既有来源, 未锁定字段的来源照常清空."""
+        meta = await repo.upsert_metadata(
+            number="LOCK-010", title="Old", field_sources={"title": "javdb", "actors": "javdb"}
+        )
+        assert meta.id is not None
+        await repo.set_metadata_locks(meta.id, [MetadataField.TITLE])
+
+        updated = await repo.upsert_metadata(number="LOCK-010", title=None, actors=["New"], field_sources={})
+
+        assert updated.title == "Old"
+        assert updated.actors == ["New"]
+        assert updated.field_sources == {"title": "javdb"}
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_update_auto_preserves_locked_source_when_incoming_empty(self, repo: Repository):
+        meta = await repo.upsert_metadata(number="LOCK-011", title="Old", field_sources={"title": "javdb"})
+        assert meta.id is not None
+        await repo.set_metadata_locks(meta.id, [MetadataField.TITLE])
+
+        updated = await repo.update_metadata(meta.id, title=None, field_sources={})
+
+        assert updated is not None
+        assert updated.title == "Old"
+        assert updated.field_sources == {"title": "javdb"}
+
+    @pytest.mark.parametrize(
+        ("field", "original_kwargs", "incoming_kwargs"),
+        [
+            (MetadataField.ACTORS, {"actors": ["A"]}, {"actors": ["B"]}),
+            (MetadataField.TAGS, {"tags": ["t1"]}, {"tags": ["t2"]}),
+            (
+                MetadataField.EXTRAFANART,
+                {"extrafanart_urls": {"javdb": ["https://f/1.jpg"]}},
+                {"extrafanart_urls": {"dmm": ["https://f/2.jpg"]}},
+            ),
+            (MetadataField.SCORE, {"scores": {"javdb": 4.0}}, {"scores": {"dmm": 5.0}}),
+        ],
+    )
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_upsert_keeps_locked_value_by_column_shape(
+        self,
+        repo: Repository,
+        field: MetadataField,
+        original_kwargs: dict[str, object],
+        incoming_kwargs: dict[str, object],
+    ):
+        await repo.upsert_metadata(number="LOCK-012", **cast("MetadataFields", original_kwargs))
+        meta = await repo.get_metadata_by_number("LOCK-012")
+        assert meta is not None and meta.id is not None
+        await repo.set_metadata_locks(meta.id, [field])
+
+        incoming = cast("MetadataFields", {**incoming_kwargs, "plot": "unlocked-update"})
+        updated = await repo.upsert_metadata(number="LOCK-012", **incoming)
+
+        (column,) = original_kwargs
+        assert getattr(updated, column) == original_kwargs[column]
+        assert updated.plot == "unlocked-update"
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_locked_actors_still_filtered_by_block_rule(self, repo: Repository):
+        """锁拦截自动刮削取值; 写入路径内的 block 规则仍作用于锁定 actors."""
+        meta = await repo.upsert_metadata(number="LOCK-013", actors=["Blocked", "Keep"])
+        assert meta.id is not None
+        await repo.set_metadata_locks(meta.id, [MetadataField.ACTORS])
+        actors = await repo.get_actors_by_names(["Blocked"])
+        assert actors[0].id is not None
+        await repo.delete_facet(FacetKind.ACTOR, actors[0].id)
+
+        # 绕过 delete 的剔除写回被 block 的名字, 归一路径必须仍剔除.
+        async with repo._session() as session:
+            row = await session.get(Metadata, meta.id)
+            assert row is not None
+            row.actors = ["Blocked", "Keep"]
+            session.add(row)
+            await session.commit()
+
+        updated = await repo.upsert_metadata(number="LOCK-013", actors=["New"])
+
+        assert updated.actors == ["Keep"]
 
 
 class TestTaskRepo:
