@@ -97,7 +97,8 @@ async def create_library(req: LibraryCreateRequest, repo: RepoDep, runtime: Runt
                 library_id=lib.id,
                 recursive=req.recursive,
                 patterns=req.patterns,
-                path=req.path,
+                # 用落库后的路径: 入口已把库路径解析为真实路径, 首次扫描必须与它同一形式.
+                path=lib.path,
                 scan={ScanMode.add},
                 scrape=set(),
             ),
@@ -150,6 +151,9 @@ async def update_library(
     }
     if runtime.watcher_service and watch_fields & updates.keys():
         runtime.watcher_service.sync_library(lib)
+    # 清单记录生成时的库根: 路径改掉后按新库根重解释相对路径会删错文件.
+    if "path" in updates:
+        runtime.inventory_store.drop_library(library_id)
 
     return to_resp(LibraryResponse, lib)
 
@@ -166,5 +170,6 @@ async def delete_library(library_id: int, repo: RepoDep, runtime: RuntimeDep):
         runtime.watcher_service.remove_library(library_id)
 
     deleted_media = await repo.delete_library(library_id)
+    runtime.inventory_store.drop_library(library_id)
     logger.info("library deleted", library_id=library_id, deleted_media=deleted_media)
     return Response(status_code=204)

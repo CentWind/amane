@@ -22,6 +22,7 @@ import {
   IconCheck,
   IconCrop,
   IconExternalLink,
+  IconFolders,
   IconGitMerge,
   IconLock,
   IconLockOpen,
@@ -117,7 +118,7 @@ function FieldBlock({
 
 function TitleDetailPage() {
   const { metadataId } = Route.useParams();
-  const { t } = useTranslation(["metadata", "common"]);
+  const { t } = useTranslation(["metadata", "library", "common"]);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [editOpen, setEditOpen] = useState(false);
@@ -865,6 +866,21 @@ function TitleDetailPage() {
                   <Badge size="sm" variant="light">
                     {f.status}
                   </Badge>
+                  {/* 逐文件的删除只在媒体库详情页做: 这里只把人送过去, 并按该文件的路径过滤列表. */}
+                  <ActionIcon
+                    variant="subtle"
+                    size="sm"
+                    aria-label={t("detail.openInLibrary")}
+                    onClick={() =>
+                      void navigate({
+                        to: "/libraries/$libraryId",
+                        params: { libraryId: String(f.library_id) },
+                        search: { q: f.path },
+                      })
+                    }
+                  >
+                    <IconFolders size={16} />
+                  </ActionIcon>
                 </Group>
               ))}
             </Stack>

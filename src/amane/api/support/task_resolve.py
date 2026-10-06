@@ -1,4 +1,4 @@
-"""scan / trash / organize 由 library_id 派生 path; REFRESH / TRASH 另派生 recursive / patterns."""
+"""提交请求 → 任务 payload: 库内任务由 library_id 派生 path, REFRESH / SCAN_INVALID 另派生 recursive / patterns."""
 
 from typing import TYPE_CHECKING, assert_never
 
@@ -6,24 +6,26 @@ from ...db.models import TaskType
 from ...handlers import (
     ActorScrapePayload,
     CleanupPayload,
+    DeletePayload,
     OrganizePayload,
     R18ImportPayload,
     RefreshPayload,
     RescrapePayload,
+    ScanInvalidPayload,
     ScrapePayload,
-    TrashPayload,
     UpscalePayload,
 )
 from ..models import (
     ActorScrapeSubmission,
     CleanupSubmission,
+    DeleteSubmission,
     OrganizeSubmission,
     R18ImportSubmission,
     RefreshSubmission,
     RescrapeSubmission,
+    ScanInvalidSubmission,
     ScrapeSubmission,
     TaskSubmission,
-    TrashSubmission,
     UpscaleSubmission,
 )
 
@@ -33,8 +35,9 @@ if TYPE_CHECKING:
 ResolvedPayload = (
     RefreshPayload
     | ScrapePayload
+    | ScanInvalidPayload
+    | DeletePayload
     | OrganizePayload
-    | TrashPayload
     | CleanupPayload
     | UpscalePayload
     | R18ImportPayload
@@ -51,9 +54,11 @@ async def resolve_submission(req: TaskSubmission, repo: Repository) -> tuple[Tas
         case OrganizeSubmission():
             await req.resolve(repo)
             return TaskType.ORGANIZE, req
-        case TrashSubmission():
+        case DeleteSubmission():
+            return TaskType.DELETE, req
+        case ScanInvalidSubmission():
             await req.resolve(repo)
-            return TaskType.TRASH, req
+            return TaskType.SCAN_INVALID, req
         case ScrapeSubmission():
             return TaskType.SCRAPE, await req.resolve(repo)
         case CleanupSubmission():

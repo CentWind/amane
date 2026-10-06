@@ -831,6 +831,40 @@ export type CropPosterRequest = {
 };
 
 /**
+ * DeleteSubmission
+ */
+export type DeleteSubmission = {
+    /**
+     * Library Id
+     *
+     * 清单所属 Library ID
+     */
+    library_id: number;
+    /**
+     * Inventory Id
+     *
+     * 后端生成的清单标识; 不存在或已过期则失败
+     */
+    inventory_id: string;
+    /**
+     * Exclude
+     *
+     * 排除项: 库内为清单库根下的相对路径, 库外为绝对路径; 按路径分量匹配
+     */
+    exclude?: Array<string>;
+    /**
+     * Prune Empty Dirs
+     *
+     * 删除本次腾空的目录 (库根与 .amane_trash 除外)
+     */
+    prune_empty_dirs?: boolean;
+    /**
+     * Type
+     */
+    type: 'delete';
+};
+
+/**
  * DesktopResponse
  */
 export type DesktopResponse = {
@@ -1372,6 +1406,13 @@ export type FilePhaseSummary = {
 };
 
 /**
+ * FootprintNoticeKind
+ *
+ * 未能纳入清单的项. 只给码与参数, 文案由面板按界面语言给出.
+ */
+export type FootprintNoticeKind = 'missing' | 'outside_root' | 'work_dir_is_root' | 'work_dir_multiple' | 'template_error';
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -1465,6 +1506,146 @@ export type Interrupt = {
      */
     subagentRunId?: string | null;
     [key: string]: unknown;
+};
+
+/**
+ * InventoryEntryKind
+ */
+export type InventoryEntryKind = 'file' | 'dir' | 'symlink';
+
+/**
+ * InventoryNodePage
+ *
+ * 一个目录的子节点切片. 面板只渲染 ``items``, 滚到底再按 ``offset`` 取下一页.
+ */
+export type InventoryNodePage = {
+    /**
+     * Path
+     */
+    path: string;
+    /**
+     * Items
+     */
+    items: Array<InventoryNodeResponse>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Offset
+     */
+    offset: number;
+    /**
+     * Limit
+     */
+    limit: number;
+    /**
+     * Entry Count
+     */
+    entry_count: number;
+    /**
+     * Entry Bytes
+     */
+    entry_bytes: number;
+};
+
+/**
+ * InventoryNodeResponse
+ *
+ * 树节点. ``path`` 库内为相对路径, 库外为绝对路径, 一律 `/` 分隔; 子节点按需再取.
+ */
+export type InventoryNodeResponse = {
+    /**
+     * Path
+     */
+    path: string;
+    /**
+     * Name
+     */
+    name: string;
+    kind: InventoryEntryKind;
+    reason?: InventoryReason | null;
+    /**
+     * Size
+     */
+    size?: number | null;
+    /**
+     * Hardlink
+     */
+    hardlink?: boolean;
+    /**
+     * Entry Count
+     */
+    entry_count: number;
+    /**
+     * Entry Bytes
+     */
+    entry_bytes: number;
+    /**
+     * Will Be Empty
+     */
+    will_be_empty?: boolean;
+    /**
+     * Has Children
+     */
+    has_children?: boolean;
+    /**
+     * Children
+     */
+    children?: Array<InventoryNodeResponse> | null;
+};
+
+/**
+ * InventoryReason
+ */
+export type InventoryReason = 'blacklist' | 'undersized' | 'empty_dir' | 'explicit';
+
+/**
+ * InventorySummaryResponse
+ *
+ * 面板入口: 状态与范围. ``exists`` 为假时其余字段无意义; 节点一律经分页接口另取.
+ */
+export type InventorySummaryResponse = {
+    /**
+     * Exists
+     */
+    exists: boolean;
+    /**
+     * Inventory Id
+     */
+    inventory_id?: string | null;
+    /**
+     * Created At
+     */
+    created_at?: string | null;
+    /**
+     * Scope Path
+     */
+    scope_path?: string | null;
+    /**
+     * Truncated
+     */
+    truncated?: boolean;
+    /**
+     * Dropped
+     */
+    dropped?: number;
+    /**
+     * Skipped Dirs
+     */
+    skipped_dirs?: number;
+    /**
+     * Skipped Files
+     */
+    skipped_files?: number;
+    /**
+     * Scan Running
+     */
+    scan_running?: boolean;
+    /**
+     * Last Scan Error
+     */
+    last_scan_error?: string | null;
 };
 
 export type JsonValue = unknown;
@@ -1865,6 +2046,10 @@ export type MediaFileResponse = {
      * Id
      */
     id: number;
+    /**
+     * Library Id
+     */
+    library_id: number;
     /**
      * Path
      */
@@ -2513,6 +2698,12 @@ export type OrganizeSubmission = {
      */
     media_file_ids?: Array<number> | null;
     /**
+     * Prune Empty Dirs
+     *
+     * 移动后删除本次腾空的目录 (库根与 .amane_trash 除外); 复制 / 硬链接 / 软链接方式不移走源文件, 该开关无效
+     */
+    prune_empty_dirs?: boolean;
+    /**
      * Type
      */
     type: 'organize';
@@ -3148,6 +3339,40 @@ export type SavedQueryUpdateRequest = {
 };
 
 /**
+ * ScanInvalidSubmission
+ */
+export type ScanInvalidSubmission = {
+    /**
+     * Library Id
+     *
+     * 所属 Library ID; 扫描/整理在该媒体库下进行
+     */
+    library_id: number;
+    /**
+     * Path
+     *
+     * 要扫描的目录路径 (覆盖 Library 路径, 必须为 Library 子目录).
+     */
+    path?: string;
+    /**
+     * Recursive
+     *
+     * 覆盖 Library 的 recursive; None 沿用库设置
+     */
+    recursive?: boolean | null;
+    /**
+     * Patterns
+     *
+     * 覆盖 Library 的 patterns; None 沿用库设置
+     */
+    patterns?: Array<string> | null;
+    /**
+     * Type
+     */
+    type: 'scan_invalid';
+};
+
+/**
  * ScanMode
  */
 export type ScanMode = 'add' | 'remove';
@@ -3343,6 +3568,75 @@ export type ScrapingConfig = {
     site_config?: {
         [key: string]: SiteConfig;
     };
+};
+
+/**
+ * SelectionNoticeResponse
+ *
+ * 展开时未能纳入清单的项. 面板按 ``kind`` 用界面语言给出文案, 因此服务端不带文案.
+ */
+export type SelectionNoticeResponse = {
+    kind: FootprintNoticeKind;
+    /**
+     * Path
+     */
+    path?: string | null;
+    /**
+     * Count
+     */
+    count?: number | null;
+    /**
+     * Detail
+     */
+    detail?: string | null;
+};
+
+/**
+ * SelectionRequest
+ *
+ * 由选中的媒体文件展开显式来源清单.
+ */
+export type SelectionRequest = {
+    /**
+     * Media File Ids
+     *
+     * 选中的媒体文件 ID; 必须属于该库
+     */
+    media_file_ids: Array<number>;
+    /**
+     * Include Work Dir
+     *
+     * 连同作品文件夹一起删除; 仅在该目录只含这一条媒体索引且不是库根时提供
+     */
+    include_work_dir?: boolean;
+};
+
+/**
+ * SelectionSummaryResponse
+ *
+ * 展开结果. 条目自库根展开 (库外产物挂在根下), 面板按分页接口读取.
+ */
+export type SelectionSummaryResponse = {
+    /**
+     * Exists
+     */
+    exists: boolean;
+    /**
+     * Inventory Id
+     */
+    inventory_id?: string | null;
+    /**
+     * Notices
+     */
+    notices?: Array<SelectionNoticeResponse>;
+    /**
+     * Truncated
+     */
+    truncated?: boolean;
+    /**
+     * Dropped
+     */
+    dropped?: number;
 };
 
 /**
@@ -3798,7 +4092,7 @@ export type TaskStatus = 'queued' | 'running' | 'done' | 'failed';
 /**
  * TaskType
  */
-export type TaskType = 'scrape' | 'organize' | 'trash' | 'refresh' | 'cleanup' | 'upscale' | 'r18_import' | 'actor_scrape' | 'rescrape';
+export type TaskType = 'scrape' | 'organize' | 'refresh' | 'cleanup' | 'upscale' | 'r18_import' | 'actor_scrape' | 'rescrape' | 'scan_invalid' | 'delete';
 
 /**
  * TaskWorkerResponse
@@ -3896,37 +4190,31 @@ export type ToolResultRow = {
 };
 
 /**
- * TrashSubmission
+ * TrashSummaryResponse
+ *
+ * 回收站历史内容: 展开即产出显式来源清单, 面板套用同一套审查与删除.
  */
-export type TrashSubmission = {
+export type TrashSummaryResponse = {
     /**
-     * Library Id
-     *
-     * 所属 Library ID; 扫描/整理在该媒体库下进行
+     * Exists
      */
-    library_id: number;
+    exists: boolean;
+    /**
+     * Inventory Id
+     */
+    inventory_id?: string | null;
     /**
      * Path
-     *
-     * 要扫描的目录路径 (覆盖 Library 路径, 必须为 Library 子目录).
      */
-    path?: string;
+    path?: string | null;
     /**
-     * Recursive
-     *
-     * 覆盖 Library 的 recursive; None 沿用库设置
+     * Truncated
      */
-    recursive?: boolean | null;
+    truncated?: boolean;
     /**
-     * Patterns
-     *
-     * 覆盖 Library 的 patterns; None 沿用库设置
+     * Dropped
      */
-    patterns?: Array<string> | null;
-    /**
-     * Type
-     */
-    type: 'trash';
+    dropped?: number;
 };
 
 /**
@@ -4288,6 +4576,151 @@ export type GetConfigSchemaResponses = {
 };
 
 export type GetConfigSchemaResponse = GetConfigSchemaResponses[keyof GetConfigSchemaResponses];
+
+export type GetCleanupInventoryData = {
+    body?: never;
+    path: {
+        /**
+         * Library Id
+         */
+        library_id: number;
+    };
+    query?: never;
+    url: '/api/libraries/{library_id}/cleanup/inventory';
+};
+
+export type GetCleanupInventoryErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetCleanupInventoryError = GetCleanupInventoryErrors[keyof GetCleanupInventoryErrors];
+
+export type GetCleanupInventoryResponses = {
+    /**
+     * Successful Response
+     */
+    200: InventorySummaryResponse;
+};
+
+export type GetCleanupInventoryResponse = GetCleanupInventoryResponses[keyof GetCleanupInventoryResponses];
+
+export type GetCleanupInventoryNodesData = {
+    body?: never;
+    path: {
+        /**
+         * Library Id
+         */
+        library_id: number;
+    };
+    query?: {
+        /**
+         * Path
+         *
+         * 节点路径: 库内相对库根, 库外为绝对路径; 空串取根
+         */
+        path?: string;
+        /**
+         * Inventory Id
+         *
+         * 指定清单; 缺省用规则来源的最新一份
+         */
+        inventory_id?: string | null;
+        /**
+         * Offset
+         *
+         * 从第几个子节点开始
+         */
+        offset?: number;
+        /**
+         * Limit
+         *
+         * 本页最多返回多少个子节点
+         */
+        limit?: number;
+    };
+    url: '/api/libraries/{library_id}/cleanup/inventory/nodes';
+};
+
+export type GetCleanupInventoryNodesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetCleanupInventoryNodesError = GetCleanupInventoryNodesErrors[keyof GetCleanupInventoryNodesErrors];
+
+export type GetCleanupInventoryNodesResponses = {
+    /**
+     * Successful Response
+     */
+    200: InventoryNodePage;
+};
+
+export type GetCleanupInventoryNodesResponse = GetCleanupInventoryNodesResponses[keyof GetCleanupInventoryNodesResponses];
+
+export type GetCleanupTrashData = {
+    body?: never;
+    path: {
+        /**
+         * Library Id
+         */
+        library_id: number;
+    };
+    query?: never;
+    url: '/api/libraries/{library_id}/cleanup/trash';
+};
+
+export type GetCleanupTrashErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetCleanupTrashError = GetCleanupTrashErrors[keyof GetCleanupTrashErrors];
+
+export type GetCleanupTrashResponses = {
+    /**
+     * Successful Response
+     */
+    200: TrashSummaryResponse;
+};
+
+export type GetCleanupTrashResponse = GetCleanupTrashResponses[keyof GetCleanupTrashResponses];
+
+export type ExpandCleanupSelectionData = {
+    body: SelectionRequest;
+    path: {
+        /**
+         * Library Id
+         */
+        library_id: number;
+    };
+    query?: never;
+    url: '/api/libraries/{library_id}/cleanup/selection';
+};
+
+export type ExpandCleanupSelectionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ExpandCleanupSelectionError = ExpandCleanupSelectionErrors[keyof ExpandCleanupSelectionErrors];
+
+export type ExpandCleanupSelectionResponses = {
+    /**
+     * Successful Response
+     */
+    200: SelectionSummaryResponse;
+};
+
+export type ExpandCleanupSelectionResponse = ExpandCleanupSelectionResponses[keyof ExpandCleanupSelectionResponses];
 
 export type ListFilesData = {
     body?: never;
@@ -6767,7 +7200,7 @@ export type SubmitTaskData = {
     /**
      * Req
      */
-    body: RefreshSubmission | OrganizeSubmission | TrashSubmission | ScrapeSubmission | CleanupSubmission | UpscaleSubmission | R18ImportSubmission | ActorScrapeSubmission | RescrapeSubmission;
+    body: RefreshSubmission | OrganizeSubmission | ScanInvalidSubmission | DeleteSubmission | ScrapeSubmission | CleanupSubmission | UpscaleSubmission | R18ImportSubmission | ActorScrapeSubmission | RescrapeSubmission;
     path?: never;
     query?: never;
     url: '/api/tasks';

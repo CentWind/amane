@@ -20,7 +20,7 @@
     }
   },
   "organize": {
-    "tooltip": "Trash invalid files then organize"
+    "tooltip": "Organize"
   },
   "columns": {
     "number": "Number",
@@ -105,9 +105,9 @@
   "fieldTrailerPattern": "Trailer filename regex",
   "fieldTrailerPatternHint": "Matches are treated as trailers and skipped during scan and watch",
   "fieldBlacklistPatterns": "Blacklist regexes",
-  "fieldBlacklistPatternsHint": "One regex per line; matches are treated as junk, skipped during scan, moved to .amane_trash by the Trash task",
+  "fieldBlacklistPatternsHint": "One regex per line; matches are treated as junk and listed as cleanup candidates",
   "fieldMinFileSize": "Minimum video size",
-  "fieldMinFileSizeHint": "Videos smaller than this are treated as junk and moved to .amane_trash by the Trash task",
+  "fieldMinFileSizeHint": "Videos smaller than this are treated as junk and listed as cleanup candidates",
   "fieldSubtitleExtensions": "Subtitle extensions",
   "fieldSubtitleExtensionsHint": "Comma-separated",
   "fieldMoveMode": "File Operation Mode",
@@ -187,5 +187,61 @@
     "nfo": "NFO Template",
     "trailer": "Trailer Template",
     "subtitle": "Subtitle Template"
+  },
+  "cleanup": {
+    "tooltip": "Clean unwanted files and empty directories",
+    "title": "Clean unwanted files",
+    "scan": "Start scan",
+    "rescan": "Rescan",
+    "scanStarted": "Scan started",
+    "deleteStarted": "Deletion started",
+    "scope": "This inventory covers {{path}} only",
+    "truncated": "Too many files; only part of the results are included",
+    "truncatedMore": "{{count}} more items are not included",
+    "skipped": "{{dirs}} directories and {{files}} files were not covered",
+    "selected": "{{count}} selected, about {{size}}",
+    "empty": "Nothing to clean",
+    "expand": "Expand",
+    "willBeEmpty": "Will be emptied",
+    "hardlink": "Hard link",
+    "hardlinkHint": "Deleting frees no extra space",
+    "nodeCount": "{{count}} items",
+    "confirmTitle": "Confirm deletion",
+    "confirmMessage": "{{count}} items, about {{size}}, will be deleted. This cannot be undone; index rows go with them.",
+    "confirmLabel": "Delete",
+    "deleteSelected": "Delete selected",
+    "reason": {
+      "blacklist": "Blacklist",
+      "undersized": "Too small",
+      "empty_dir": "Empty directory",
+      "explicit": "Selected"
+    },
+    "notice": {
+      "missing": "No longer on disk: {{path}}",
+      "outside_root": "Outside the library root; save the library path again: {{path}}",
+      "work_dir_is_root": "This folder is the library root; deleting it is not offered",
+      "work_dir_multiple": "The folder holds {{count}} indexed media files; deleting it is not offered: {{path}}",
+      "template_error": "Template cannot be resolved; products were left out: {{path}} ({{detail}})"
+    },
+    "confirmMessage_one": "{{count}} items, about {{size}}, will be deleted. This cannot be undone; index rows go with them.",
+    "confirmMessage_other": "{{count}} items, about {{size}}, will be deleted. This cannot be undone; index rows go with them.",
+    "selected_one": "{{count}} selected, about {{size}}",
+    "selected_other": "{{count}} selected, about {{size}}",
+    "nodeCount_one": "{{count}} items",
+    "nodeCount_other": "{{count}} items",
+    "tabRules": "Unwanted files",
+    "tabTrash": "Trash",
+    "previewTitle": "Confirm what will be deleted",
+    "deleteMenu": "Delete",
+    "deleteRecord": "Record only",
+    "deleteFiles": "Delete files",
+    "deleteWorkDir": "Delete containing folder",
+    "scanning": "Scanning for unwanted files…",
+    "scanningHint": "You can close this panel; the scan keeps running",
+    "scanFailed": "Last scan failed",
+    "symlink": "Link",
+    "symlinkHint": "Deletes the link inside the library, not the file it points to",
+    "truncatedMore_one": "{{count}} more item is not included",
+    "truncatedMore_other": "{{count}} more items are not included"
   }
 }

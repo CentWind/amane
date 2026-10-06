@@ -29,13 +29,14 @@
     "failed": "失败",
     "scrape": "刮削",
     "organize": "整理",
-    "trash": "回收",
     "cleanup": "清理",
     "upscale": "超分",
     "refresh": "扫描",
     "r18_import": "R18 导入",
     "actor_scrape": "演员刮削",
-    "rescrape": "补刮"
+    "rescrape": "补刮",
+    "scan_invalid": "扫描无效文件",
+    "delete": "删除"
   },
   "detail": {
     "status": "状态",
@@ -141,13 +142,14 @@
     "types": {
       "scrape": "刮削",
       "organize": "整理",
-      "trash": "回收",
       "cleanup": "清理",
       "upscale": "超分",
       "refresh": "扫描",
       "r18_import": "R18 导入",
       "actor_scrape": "演员刮削",
-      "rescrape": "补刮"
+      "rescrape": "补刮",
+      "scan_invalid": "扫描无效文件",
+      "delete": "删除"
     },
     "cleanup": {
       "remove_missing_files": {
@@ -191,24 +193,10 @@
             "trailer": "预告片"
           }
         }
-      }
-    },
-    "trash": {
-      "library_id": {
-        "label": "媒体库",
-        "description": ""
       },
-      "recursive": {
-        "label": "递归扫描",
-        "description": "覆盖媒体库设置"
-      },
-      "patterns": {
-        "label": "匹配模式",
-        "description": "覆盖媒体库设置"
-      },
-      "path": {
-        "label": "路径",
-        "description": "可设置仅回收库的子目录"
+      "prune_empty_dirs": {
+        "label": "删除腾空的目录",
+        "description": "移动后删除本次腾空的目录; 复制 / 硬链接 / 软链接方式无效"
       }
     },
     "scrape": {
@@ -346,6 +334,42 @@
             "actor": "演员"
           }
         }
+      }
+    },
+    "scan_invalid": {
+      "library_id": {
+        "label": "媒体库",
+        "description": ""
+      },
+      "path": {
+        "label": "路径",
+        "description": "可设置仅扫描库的子目录"
+      },
+      "recursive": {
+        "label": "递归扫描",
+        "description": "覆盖媒体库设置"
+      },
+      "patterns": {
+        "label": "匹配模式",
+        "description": "覆盖媒体库设置"
+      }
+    },
+    "delete": {
+      "library_id": {
+        "label": "媒体库",
+        "description": ""
+      },
+      "inventory_id": {
+        "label": "清单标识",
+        "description": "面板产出; 手动填写不会命中任何清单"
+      },
+      "exclude": {
+        "label": "排除项",
+        "description": "库内为清单库根下的相对路径 (按路径分量, 含其子树), 库外为绝对路径"
+      },
+      "prune_empty_dirs": {
+        "label": "删除腾空的目录",
+        "description": "库根与 .amane_trash 除外"
       }
     }
   }

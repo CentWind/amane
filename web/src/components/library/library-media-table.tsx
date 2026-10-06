@@ -32,6 +32,7 @@ import { ListToolbar } from "@/components/common/list-toolbar";
 import { SortableTh } from "@/components/common/sortable-th";
 import { SelectionBar } from "@/components/common/selection-bar";
 import { ScrapeOverrideDialog } from "./scrape-override-dialog";
+import { MediaDeleteDialog } from "./media-delete-dialog";
 import { useIdSelection } from "@/hooks/use-id-selection";
 import { extractErrorMessage } from "@/lib/api-error";
 import { confirm } from "@/lib/confirm";
@@ -61,6 +62,36 @@ function relativePath(libraryPath: string, path: string): string {
     return path.slice(libraryPath.length).replace(/^\//, "");
   }
   return path;
+}
+
+interface DeleteMenuItemsProps {
+  onDeleteRecord: () => void;
+  onDeleteFiles: () => void;
+  onDeleteWorkDir: () => void;
+  disabled?: boolean;
+}
+
+/** 三个删除口径在批量与单行菜单里完全一致, 只在单行菜单里没有勾选量. */
+function DeleteMenuItems({
+  onDeleteRecord,
+  onDeleteFiles,
+  onDeleteWorkDir,
+  disabled,
+}: DeleteMenuItemsProps) {
+  const { t } = useTranslation("library");
+  return (
+    <>
+      <Menu.Item disabled={disabled} onClick={onDeleteRecord}>
+        {t("cleanup.deleteRecord")}
+      </Menu.Item>
+      <Menu.Item disabled={disabled} onClick={onDeleteFiles}>
+        {t("cleanup.deleteFiles")}
+      </Menu.Item>
+      <Menu.Item disabled={disabled} onClick={onDeleteWorkDir}>
+        {t("cleanup.deleteWorkDir")}
+      </Menu.Item>
+    </>
+  );
 }
 
 const SORTABLE_COLUMNS = [
@@ -134,6 +165,9 @@ export function LibraryMediaTable({
   const [batchScraping, setBatchScraping] = useState(false);
   const [batchOrganizing, setBatchOrganizing] = useState(false);
   const [batchDeleting, setBatchDeleting] = useState(false);
+  const [deleteTargets, setDeleteTargets] = useState<{ ids: number[]; workDir: boolean } | null>(
+    null,
+  );
   const [overrideTarget, setOverrideTarget] = useState<MediaFileResponse | null>(null);
   const [overrideSaving, setOverrideSaving] = useState(false);
 
@@ -259,6 +293,10 @@ export function LibraryMediaTable({
   const effectiveOrder = order ?? "desc";
   const busy = batchScraping || batchOrganizing || batchDeleting;
 
+  function openMediaDelete(ids: number[], includeWorkDir: boolean) {
+    setDeleteTargets({ ids, workDir: includeWorkDir });
+  }
+
   function handlePageChange(p: number) {
     clear();
     onPageChange(p);
@@ -293,17 +331,27 @@ export function LibraryMediaTable({
             >
               {t("actions.batchOrganize")}
             </Button>
-            <Button
-              size="xs"
-              variant="light"
-              color="red"
-              leftSection={<IconTrash size={14} />}
-              loading={busy}
-              disabled={selected.size === 0}
-              onClick={() => void handleBatchDelete()}
-            >
-              {t("common:actions.delete")}
-            </Button>
+            <Menu position="bottom-end" withinPortal>
+              <Menu.Target>
+                <Button
+                  size="xs"
+                  variant="light"
+                  color="red"
+                  leftSection={<IconTrash size={14} />}
+                  loading={busy}
+                  disabled={selected.size === 0}
+                >
+                  {t("cleanup.deleteMenu")}
+                </Button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <DeleteMenuItems
+                  onDeleteRecord={() => void handleBatchDelete()}
+                  onDeleteFiles={() => openMediaDelete(selectedIds, false)}
+                  onDeleteWorkDir={() => openMediaDelete(selectedIds, true)}
+                />
+              </Menu.Dropdown>
+            </Menu>
           </Group>
           <Box hiddenFrom="sm">
             <Menu position="bottom-start" withinPortal>
@@ -328,14 +376,12 @@ export function LibraryMediaTable({
                   {t("actions.batchOrganize")}
                 </Menu.Item>
                 <Menu.Divider />
-                <Menu.Item
-                  color="red"
-                  leftSection={<IconTrash size={14} />}
+                <DeleteMenuItems
                   disabled={busy}
-                  onClick={() => void handleBatchDelete()}
-                >
-                  {t("common:actions.delete")}
-                </Menu.Item>
+                  onDeleteRecord={() => void handleBatchDelete()}
+                  onDeleteFiles={() => openMediaDelete(selectedIds, false)}
+                  onDeleteWorkDir={() => openMediaDelete(selectedIds, true)}
+                />
               </Menu.Dropdown>
             </Menu>
           </Box>
@@ -458,14 +504,25 @@ export function LibraryMediaTable({
                     >
                       <IconForms size={16} />
                     </HintedActionIcon>
-                    <HintedActionIcon
-                      variant="subtle"
-                      color="red"
-                      label={t("common:actions.delete")}
-                      onClick={() => void handleDeleteOne(item.id)}
-                    >
-                      <IconTrash size={16} />
-                    </HintedActionIcon>
+                    <Menu position="bottom-end" withinPortal>
+                      <Menu.Target>
+                        <ActionIcon
+                          variant="subtle"
+                          color="red"
+                          size="sm"
+                          aria-label={t("cleanup.deleteMenu")}
+                        >
+                          <IconTrash size={16} />
+                        </ActionIcon>
+                      </Menu.Target>
+                      <Menu.Dropdown>
+                        <DeleteMenuItems
+                          onDeleteRecord={() => void handleDeleteOne(item.id)}
+                          onDeleteFiles={() => openMediaDelete([item.id], false)}
+                          onDeleteWorkDir={() => openMediaDelete([item.id], true)}
+                        />
+                      </Menu.Dropdown>
+                    </Menu>
                   </Group>
                   {/* Menu 不接受 visibleFrom / hiddenFrom, 显隐由外层 Box 承担. */}
                   <Box hiddenFrom="sm" style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -496,13 +553,11 @@ export function LibraryMediaTable({
                           {t("actions.scrapeWithNumber")}
                         </Menu.Item>
                         <Menu.Divider />
-                        <Menu.Item
-                          color="red"
-                          leftSection={<IconTrash size={14} />}
-                          onClick={() => void handleDeleteOne(item.id)}
-                        >
-                          {t("common:actions.delete")}
-                        </Menu.Item>
+                        <DeleteMenuItems
+                          onDeleteRecord={() => void handleDeleteOne(item.id)}
+                          onDeleteFiles={() => openMediaDelete([item.id], false)}
+                          onDeleteWorkDir={() => openMediaDelete([item.id], true)}
+                        />
                       </Menu.Dropdown>
                     </Menu>
                   </Box>
@@ -525,6 +580,17 @@ export function LibraryMediaTable({
           if (!overrideSaving) setOverrideTarget(null);
         }}
         onSubmit={(number, contentType) => void handleOverrideScrape(number, contentType)}
+      />
+      <MediaDeleteDialog
+        libraryId={libraryId}
+        mediaFileIds={deleteTargets?.ids ?? []}
+        includeWorkDir={deleteTargets?.workDir ?? false}
+        opened={deleteTargets !== null}
+        onClose={() => setDeleteTargets(null)}
+        onDeleted={() => {
+          clear();
+          invalidate();
+        }}
       />
     </ListToolbar>
   );

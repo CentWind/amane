@@ -29,7 +29,7 @@
 
 ## Library 归属
 
-与 Emby Library 概念对齐: 一个 Library = 一个根目录 + 一组路径模板 + 整理放置方式 (`move_mode`) + 自动化级别 (`automation`: none / watch / scrape) + 发现通道 (`ingest`: native / clouddrive) + 跳过规则. `automation` 只控制发现侧 (不监控 / 仅登记 / 登记后自动刮削); `ingest=clouddrive` 必填 `cloud_path` 且不挂 watchdog Observer, 契约见 [watcher.md](watcher.md). **自动整理尚未开放**, 落盘只由手动 ORGANIZE 执行.
+与 Emby Library 概念对齐: 一个 Library = 一个根目录 + 一组路径模板 + 整理放置方式 (`move_mode`) + 自动化级别 (`automation`: none / watch / scrape) + 发现通道 (`ingest`: native / clouddrive) + 跳过规则. `automation` 只控制发现侧 (不监控 / 仅登记 / 登记后自动刮削); `ingest=clouddrive` 必填 `cloud_path` 且不挂 watchdog Observer, 契约见 [watcher.md](watcher.md). **自动整理尚未开放**, 落盘只由手动 ORGANIZE 执行. **库路径在写入时解析为真实路径**, 但值没变就不改写形式: 老库的库根可能还没解析, 而索引行与它同一写法. 索引路径、模板产物与任务范围一律按字面路径比较, 别名与真实路径混用会把同一个文件算成两条索引 — 任务范围仅在该库路径已是真实路径时才跟着规范化.
 
 **每个 `MediaFile` 必须持久关联到唯一 Library** (`MediaFile.library_id` 非空 FK). 归属在文件**入库时确定一次**, 入口行为一致: watcher 按监控根绑定的 `library_id`, scan 按 payload 自带, 手动 by-number scrape / RSS 发现与文件无关因而无归属. 库目录落盘只由 ORGANIZE 执行 — 读 `media_file.library_id` 取模板与放置方式, 是归属的唯一真值来源; SCRAPE 用 `media_file_id` 只作查询输入与回写关联, 不移动文件.
 
@@ -100,13 +100,14 @@ PATCH 三态: **省略键** = 不更新 (`exclude_unset`); **显式值** = 写�
 
 每个 Library 持有 `move_mode` (move / copy / hardlink / symlink)、一组按资源类型独立的路径模板与整理默认 (`write_nfo` / `copy_resources`), 因此同一进程里各库可以不同. `copy_resources` 与刮削热配置 `scraping.download_resources` 共用 `DownloadableResource` 枚举但互不读写 — 前者控制复制到库路径, 后者控制写入 Resource 目录. ORGANIZE payload 上对应字段为 `None` 时沿用库设置, 非空则只覆盖该次任务.
 
-`trailer_pattern` 只在库上: 对**文件名 (含扩展名)** 做正则搜索, 命中则 REFRESH / TRASH 扫描与 watcher 都不把该文件当正片入库; 空串关闭. `min_file_size` (字节, 默认 0 关闭) 只过滤**扫描视频**: 后缀须属于该次扫描的视频扩展名白名单; 图片 / NFO / 字幕不适用, `.strm` 是路径指针也不参与判定; 软链接跟随目标比较真实体积, 否则已整理的入口会被当作广告. 低于阈值与黑名单同语义: REFRESH / watcher 不入库, TRASH 移入 `.amane_trash`; stat 失败 (含悬空链接) 视为不匹配.
+`trailer_pattern` 只在库上: 对**文件名 (含扩展名)** 做正则搜索, 命中则 REFRESH 扫描与 watcher 都不把该文件当正片入库; 空串关闭. `min_file_size` (字节, 默认 0 关闭) 只过滤**扫描视频**: 后缀须属于该次扫描的视频扩展名白名单; 图片 / NFO / 字幕不适用, `.strm` 是路径指针也不参与判定; 软链接跟随目标比较真实体积, 否则已整理的入口会被当作广告. 低于阈值与黑名单同语义: REFRESH / watcher 不入库, 整库扫描列为清理候选; stat 失败 (含悬空链接) 视为不匹配.
 
-`blacklist_patterns` (正则列表) 与预告片同属「文件名匹配即跳过」, 语义差别在 TRASH:
+`blacklist_patterns` (正则列表) 与预告片同属「文件名匹配即跳过」, 差别在处置:
 
-- 命中文件被 TRASH 移入本库 **`.amane_trash`** (固定保留名, 恒为物理移动, 不受 `move_mode`), 移动后删除其 `MediaFile` 记录; 未纳入索引或不匹配 glob 的文件仍执行回收.
+- 命中文件与低于阈值的视频是**无效文件**, 由整库扫描 (REFRESH 或 SCAN_INVALID) 列进清理清单, 用户确认后由 DELETE 删除; 未纳入索引或不匹配 glob 的文件同样进清单, 扫描不看索引.
 - 预告片只跳过不动 — 它是模板产物, 属于库内容.
-- `.amane_trash` 是保留目录: 目录本身与任意深度下级路径在任何扫描 / 监控中都恒被忽略, 否则回收内容会被再次注册; 手动移出则被当作新文件重新入库.
+- 清理只碰清单里的条目: 清单记录生成时的库根, DELETE 执行前比对, 不一致即失败. 删除后索引按路径 (目录按前缀) 清理, 不释放 Resource — 资源留在 Resource 目录直到该 Metadata 被删除后由 CLEANUP 回收.
+- `.amane_trash` 是历史遗留目录: 不再写入新内容, 目录本身与任意深度下级路径在任何扫描 / 监控中都恒被忽略, 历史内容由回收站面板处置; 手动移出则被当作新文件重新入库.
 - 跳过正则在扫描 / 监控侧**逐条编译、任一命中即跳过**; 不允许用 `|` 拼接 (用户全局旗标拼在联合式中间会触发 re 的 "global flags not at the start"). 空列表关闭.
 
 分集 (CD) 检测只做在 ORGANIZE 时, 不落库, 写回靠路径模板里的 `{cd?}`. 文件名无分集时, 直接父目录整段为 `CDn` / `PARTn` 也可认. **幂等**: 写出的分集 / 中字 / 马赛克 / 分辨率格式须能被同一检测逻辑反推, 否则二次整理会丢失标记 — 当前只文档约束, 不加验证.

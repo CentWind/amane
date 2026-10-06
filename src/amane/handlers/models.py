@@ -10,7 +10,7 @@ from starlette.status import HTTP_403_FORBIDDEN
 from ..db import Library, MediaFileStatus, Repository
 from ..enums import DownloadableResource
 from ..parsing import ContentType, infer_content_type
-from ..utils.path import is_descendant
+from ..utils.path import is_descendant, is_resolved_path, resolved_path
 
 if TYPE_CHECKING:
     from ..db.models import Feed
@@ -38,6 +38,10 @@ class LibraryBase(BaseModel):
                 status_code=HTTP_403_FORBIDDEN,
                 detail=f"Path {self.path} is not a descendant of library path {lib.path}",
             )
+        # 范围路径与库路径必须同一形式 (文件选择器给的是真实路径): 索引与清理清单都按字面路径比较,
+        # 两种写法会把同一个文件算成两条索引. 库路径尚未解析为真实路径的旧库保持原样, 否则范围会与既有索引分家.
+        if self.path and is_resolved_path(lib.path):
+            self.path = str(resolved_path(self.path))
         self.path = self.path or lib.path
         self._apply_library(lib)
 
@@ -46,7 +50,7 @@ class LibraryBase(BaseModel):
 
 
 class LibraryScanBase(LibraryBase):
-    """REFRESH / TRASH 扫描范围: 可覆盖库的 recursive / patterns."""
+    """REFRESH / SCAN_INVALID 扫描范围: 可覆盖库的 recursive / patterns."""
 
     recursive: bool | None = Field(default=None, description="覆盖 Library 的 recursive; None 沿用库设置")
     patterns: list[str] | None = Field(default=None, description="覆盖 Library 的 patterns; None 沿用库设置")
@@ -142,6 +146,10 @@ class OrganizePayload(LibraryBase):
         default=None,
         description="勾选快照; 与 path 不能同时指定. None 表示 path 范围内的全部索引",
     )
+    prune_empty_dirs: bool = Field(
+        default=True,
+        description="移动后删除本次腾空的目录 (库根与 .amane_trash 除外); 复制 / 硬链接 / 软链接方式不移走源文件, 该开关无效",
+    )
 
     async def resolve(self, repo: Repository) -> None:
         if self.media_file_ids is not None and self.path:
@@ -164,18 +172,54 @@ class OrganizeResult(BaseModel):
     organized: int
     skipped: int
     failed: int
+    pruned_dirs: int = 0
 
 
-# --- TRASH ---
+# --- SCAN INVALID ---
 
 
-class TrashPayload(LibraryScanBase):
-    """扫描 path 范围内的黑名单与过小视频, 移入 `.amane_trash`. path 缺省为库根."""
+class ScanInvalidPayload(LibraryScanBase):
+    """只读遍历 path 范围内的无效文件与已空目录, 产出清单. path 缺省为库根."""
 
 
-class TrashResult(BaseModel):
-    trashed: int
-    failed: int = 0
+class ScanInvalidResult(BaseModel):
+    inventory_id: str
+    entries: int
+    dirs: int
+    scope_path: str | None = None
+    truncated: bool = False
+    skipped_dirs: int = 0
+    skipped_files: int = 0
+
+
+# --- DELETE ---
+
+
+class DeletePayload(BaseModel):
+    """按清单标识删除; 执行集合 = 清单条目减去 exclude, 不做运行时推导."""
+
+    library_id: int = Field(description="清单所属 Library ID")
+    inventory_id: str = Field(description="后端生成的清单标识; 不存在或已过期则失败")
+    exclude: list[str] = Field(
+        default_factory=list,
+        description="排除项: 库内为清单库根下的相对路径, 库外为绝对路径; 按路径分量匹配",
+    )
+    prune_empty_dirs: bool = Field(default=True, description="删除本次腾空的目录 (库根与 .amane_trash 除外)")
+
+
+class DeleteResult(BaseModel):
+    deleted: int
+    changed: int
+    failed: int
+    freed_bytes: int = 0
+    """按 inode 归并后的释放空间; 硬链接名字不齐时不计入."""
+    hardlink_items: int = 0
+    """已删除但不释放空间的硬链接项数."""
+    pruned_dirs: int = 0
+    excluded: int = 0
+    """被 exclude 排除的清单条目数."""
+    indexed: int = 0
+    """随之删除的 MediaFile 行数."""
 
 
 # --- CLEANUP ---

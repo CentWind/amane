@@ -141,10 +141,13 @@ class TestSubmitTask:
         assert (await client.post("tasks", json={"type": "refresh"})).status_code == 422
         assert (await client.post("tasks", json={"type": "refresh", "library_id": 9999})).status_code == 404
         assert (await client.post("tasks", json={"type": "organize", "library_id": 9999})).status_code == 404
-        trash = await client.post("tasks", json={"type": "trash", "library_id": lib.id})
-        assert trash.status_code == 202
-        assert trash.json()["type"] == "trash"
-        assert (await client.post("tasks", json={"type": "trash", "library_id": 9999})).status_code == 404
+        # 已移除的类型不再被接受; 删除只认后端产出的清单标识.
+        assert (await client.post("tasks", json={"type": "trash", "library_id": lib.id})).status_code == 422
+        assert (await client.post("tasks", json={"type": "delete", "library_id": lib.id})).status_code == 422
+        assert (
+            await client.post("tasks", json={"type": "delete", "library_id": lib.id, "inventory_id": "nope"})
+        ).status_code == 202
+        assert (await client.post("tasks", json={"type": "scan_invalid", "library_id": 9999})).status_code == 404
         ids_and_path = await client.post(
             "tasks", json={"type": "organize", "library_id": lib.id, "path": str(safe_path), "media_file_ids": [1]}
         )
@@ -364,3 +367,19 @@ class TestTaskRecord:
         assert resp.status_code == 200
         assert resp.headers.get("content-type") == "application/zip"
         assert resp.content[:2] == b"PK"
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_scope_path_lands_on_real_path(self, client: AsyncClient, repo: Repository, safe_path: Path):
+        """范围路径与库路径同一形式: 文件选择器给的是真实路径, 别名写法必须先解析为真实路径再入队."""
+        real = safe_path / "movies"
+        (real / "sub").mkdir(parents=True)
+        alias = safe_path / "alias"
+        alias.symlink_to(real, target_is_directory=True)
+        lib = await repo.create_library(name="a", path=str(real))
+
+        submitted = await client.post(
+            "tasks", json={"type": "scan_invalid", "library_id": lib.id, "path": str(alias / "sub")}
+        )
+
+        assert submitted.status_code == 202
+        assert submitted.json()["payload"]["path"] == str(real / "sub")

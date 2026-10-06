@@ -21,15 +21,17 @@ from ..enums import BrowserBackendName, BrowserMode, SiteName
 from ..handlers import (
     ActorScrapeHandler,
     CleanupHandler,
+    DeleteHandler,
     LibraryTaskLocks,
     OrganizeHandler,
     R18ImportHandler,
     RefreshHandler,
     RescrapeHandler,
+    ScanInvalidHandler,
     ScrapeHandler,
-    TrashHandler,
     UpscaleHandler,
 )
+from ..library import InventoryStore
 from ..llm import TranslationCache, build_translator
 from ..media.watermarks import user_watermark_dir
 from ..net.browser import BrowserPool
@@ -217,6 +219,7 @@ class AppRuntime:
     playback_factory: PlaybackFactory | None = None
     playback_state: PlaybackState = field(default_factory=PlaybackState)
     library_locks: LibraryTaskLocks = field(default_factory=LibraryTaskLocks)
+    inventory_store: InventoryStore = field(default_factory=InventoryStore)
     browser: BrowserPool | None = None
     r18_handle: R18Handle | None = None
 
@@ -291,6 +294,7 @@ class AppRuntime:
                 self.config.cold.data_dir,
                 self.plugin_manager,
                 library_locks=self.library_locks,
+                inventory_store=self.inventory_store,
             ),
             concurrency=hot.worker.concurrency,
             poll_interval=hot.worker.poll_interval,
@@ -494,6 +498,7 @@ def build_handlers(
     state_dir: Path | None = None,
     plugin_manager: PluginManager | None = None,
     library_locks: LibraryTaskLocks | None = None,
+    inventory_store: InventoryStore | None = None,
 ) -> dict[TaskType, TaskHandler[Any, Any]]:
     # 未启用/缺密钥时 translator 为 None, ScrapeHandler 跳过翻译.
     # 经 _rebuild() 热重载; 代理沿用 network.proxy.
@@ -512,8 +517,12 @@ def build_handlers(
     )
     if library_locks is None:
         library_locks = LibraryTaskLocks()
+    # 缺省自建只服务精简构造 (测试); 生产必须传入 AppRuntime 的那一份, 否则扫描写进的清单
+    # 不在面板读取的存放里, 删除任务只会得到「清单不存在」.
+    if inventory_store is None:
+        inventory_store = InventoryStore()
     handlers: dict[TaskType, TaskHandler[Any, Any]] = {
-        TaskType.REFRESH: RefreshHandler(repo, media_extensions=hot.watcher.media_extensions),
+        TaskType.REFRESH: RefreshHandler(repo, hot.watcher.media_extensions, inventory_store),
         TaskType.SCRAPE: ScrapeHandler(
             repo,
             factory,
@@ -533,7 +542,8 @@ def build_handlers(
             watermark_dir=user_watermark_dir(state_dir) if state_dir is not None else None,
             library_locks=library_locks,
         ),
-        TaskType.TRASH: TrashHandler(repo, hot, library_locks=library_locks),
+        TaskType.SCAN_INVALID: ScanInvalidHandler(repo, hot, inventory_store),
+        TaskType.DELETE: DeleteHandler(repo, inventory_store, library_locks=library_locks),
         TaskType.CLEANUP: CleanupHandler(repo=repo, resource_store=resource_store),
         TaskType.UPSCALE: UpscaleHandler(resource_store, hot),
         TaskType.RESCRAPE: RescrapeHandler(repo),

@@ -1491,6 +1491,47 @@ export const CropPosterRequestSchema = {
     description: '从封面图按像素框裁切海报 (相对 thumb 当前本地文件像素; 含就地超分后尺寸).'
 } as const;
 
+export const DeleteSubmissionSchema = {
+    properties: {
+        library_id: {
+            type: 'integer',
+            title: 'Library Id',
+            description: '清单所属 Library ID'
+        },
+        inventory_id: {
+            type: 'string',
+            title: 'Inventory Id',
+            description: '后端生成的清单标识; 不存在或已过期则失败'
+        },
+        exclude: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Exclude',
+            description: '排除项: 库内为清单库根下的相对路径, 库外为绝对路径; 按路径分量匹配'
+        },
+        prune_empty_dirs: {
+            type: 'boolean',
+            title: 'Prune Empty Dirs',
+            description: '删除本次腾空的目录 (库根与 .amane_trash 除外)',
+            default: true
+        },
+        type: {
+            type: 'string',
+            const: 'delete',
+            title: 'Type'
+        }
+    },
+    type: 'object',
+    required: [
+        'library_id',
+        'inventory_id',
+        'type'
+    ],
+    title: 'DeleteSubmission'
+} as const;
+
 export const DesktopResponseSchema = {
     properties: {
         version: {
@@ -2481,6 +2522,19 @@ export const FilePhaseSummarySchema = {
     description: '关联文件相位聚合: 任一文件具备即亮; definition 取最高档.'
 } as const;
 
+export const FootprintNoticeKindSchema = {
+    type: 'string',
+    enum: [
+        'missing',
+        'outside_root',
+        'work_dir_is_root',
+        'work_dir_multiple',
+        'template_error'
+    ],
+    title: 'FootprintNoticeKind',
+    description: '未能纳入清单的项. 只给码与参数, 文案由面板按界面语言给出.'
+} as const;
+
 export const HTTPValidationErrorSchema = {
     properties: {
         detail: {
@@ -3011,6 +3065,244 @@ export const InterruptSchema = {
     ],
     title: 'Interrupt',
     description: 'A pause carried inside ``RunFinishedEvent.outcome`` when the outcome is\n``RunFinishedInterruptOutcome``. The client resumes\nby addressing this interrupt in the resume array of the next RunAgentInput.'
+} as const;
+
+export const InventoryEntryKindSchema = {
+    type: 'string',
+    enum: [
+        'file',
+        'dir',
+        'symlink'
+    ],
+    title: 'InventoryEntryKind'
+} as const;
+
+export const InventoryNodePageSchema = {
+    properties: {
+        path: {
+            type: 'string',
+            title: 'Path'
+        },
+        items: {
+            items: {
+                $ref: '#/components/schemas/InventoryNodeResponse'
+            },
+            type: 'array',
+            title: 'Items'
+        },
+        total: {
+            type: 'integer',
+            title: 'Total'
+        },
+        offset: {
+            type: 'integer',
+            title: 'Offset'
+        },
+        limit: {
+            type: 'integer',
+            title: 'Limit'
+        },
+        entry_count: {
+            type: 'integer',
+            title: 'Entry Count'
+        },
+        entry_bytes: {
+            type: 'integer',
+            title: 'Entry Bytes'
+        }
+    },
+    type: 'object',
+    required: [
+        'path',
+        'items',
+        'total',
+        'offset',
+        'limit',
+        'entry_count',
+        'entry_bytes'
+    ],
+    title: 'InventoryNodePage',
+    description: '一个目录的子节点切片. 面板只渲染 ``items``, 滚到底再按 ``offset`` 取下一页.'
+} as const;
+
+export const InventoryNodeResponseSchema = {
+    properties: {
+        path: {
+            type: 'string',
+            title: 'Path'
+        },
+        name: {
+            type: 'string',
+            title: 'Name'
+        },
+        kind: {
+            $ref: '#/components/schemas/InventoryEntryKind'
+        },
+        reason: {
+            anyOf: [
+                {
+                    $ref: '#/components/schemas/InventoryReason'
+                },
+                {
+                    type: 'null'
+                }
+            ]
+        },
+        size: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Size'
+        },
+        hardlink: {
+            type: 'boolean',
+            title: 'Hardlink',
+            default: false
+        },
+        entry_count: {
+            type: 'integer',
+            title: 'Entry Count'
+        },
+        entry_bytes: {
+            type: 'integer',
+            title: 'Entry Bytes'
+        },
+        will_be_empty: {
+            type: 'boolean',
+            title: 'Will Be Empty',
+            default: false
+        },
+        has_children: {
+            type: 'boolean',
+            title: 'Has Children',
+            default: false
+        },
+        children: {
+            anyOf: [
+                {
+                    items: {
+                        $ref: '#/components/schemas/InventoryNodeResponse'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Children'
+        }
+    },
+    type: 'object',
+    required: [
+        'path',
+        'name',
+        'kind',
+        'entry_count',
+        'entry_bytes'
+    ],
+    title: 'InventoryNodeResponse',
+    description: '树节点. ``path`` 库内为相对路径, 库外为绝对路径, 一律 `/` 分隔; 子节点按需再取.'
+} as const;
+
+export const InventoryReasonSchema = {
+    type: 'string',
+    enum: [
+        'blacklist',
+        'undersized',
+        'empty_dir',
+        'explicit'
+    ],
+    title: 'InventoryReason'
+} as const;
+
+export const InventorySummaryResponseSchema = {
+    properties: {
+        exists: {
+            type: 'boolean',
+            title: 'Exists'
+        },
+        inventory_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Inventory Id'
+        },
+        created_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Created At'
+        },
+        scope_path: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Scope Path'
+        },
+        truncated: {
+            type: 'boolean',
+            title: 'Truncated',
+            default: false
+        },
+        dropped: {
+            type: 'integer',
+            title: 'Dropped',
+            default: 0
+        },
+        skipped_dirs: {
+            type: 'integer',
+            title: 'Skipped Dirs',
+            default: 0
+        },
+        skipped_files: {
+            type: 'integer',
+            title: 'Skipped Files',
+            default: 0
+        },
+        scan_running: {
+            type: 'boolean',
+            title: 'Scan Running',
+            default: false
+        },
+        last_scan_error: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last Scan Error'
+        }
+    },
+    type: 'object',
+    required: [
+        'exists'
+    ],
+    title: 'InventorySummaryResponse',
+    description: '面板入口: 状态与范围. ``exists`` 为假时其余字段无意义; 节点一律经分页接口另取.'
 } as const;
 
 export const JsonValueSchema = {} as const;
@@ -3925,6 +4217,10 @@ export const MediaFileResponseSchema = {
             type: 'integer',
             title: 'Id'
         },
+        library_id: {
+            type: 'integer',
+            title: 'Library Id'
+        },
         path: {
             type: 'string',
             title: 'Path'
@@ -4055,6 +4351,7 @@ export const MediaFileResponseSchema = {
     type: 'object',
     required: [
         'id',
+        'library_id',
         'path',
         'status',
         'content_type'
@@ -5210,6 +5507,12 @@ export const OrganizeSubmissionSchema = {
             title: 'Media File Ids',
             description: '勾选快照; 与 path 不能同时指定. None 表示 path 范围内的全部索引'
         },
+        prune_empty_dirs: {
+            type: 'boolean',
+            title: 'Prune Empty Dirs',
+            description: '移动后删除本次腾空的目录 (库根与 .amane_trash 除外); 复制 / 硬链接 / 软链接方式不移走源文件, 该开关无效',
+            default: true
+        },
         type: {
             type: 'string',
             const: 'organize',
@@ -6231,6 +6534,63 @@ export const SavedQueryUpdateRequestSchema = {
     description: '仅名称 / 描述 / SQL 三项, 未知键被忽略; 显式 null 一律 422, 省略键才是「不更新」.\n\n字段不从 DB 模型派生: ``create_partial_model`` 会丢弃 ``StringConstraints``;\n约束别名与创建请求共用.'
 } as const;
 
+export const ScanInvalidSubmissionSchema = {
+    properties: {
+        library_id: {
+            type: 'integer',
+            title: 'Library Id',
+            description: '所属 Library ID; 扫描/整理在该媒体库下进行',
+            'x-widget': 'LibraryPicker'
+        },
+        path: {
+            type: 'string',
+            title: 'Path',
+            description: '要扫描的目录路径 (覆盖 Library 路径, 必须为 Library 子目录).',
+            default: '',
+            'x-path-type': 'directory',
+            'x-widget': 'PathPicker'
+        },
+        recursive: {
+            anyOf: [
+                {
+                    type: 'boolean'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Recursive',
+            description: '覆盖 Library 的 recursive; None 沿用库设置'
+        },
+        patterns: {
+            anyOf: [
+                {
+                    items: {
+                        type: 'string'
+                    },
+                    type: 'array'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Patterns',
+            description: '覆盖 Library 的 patterns; None 沿用库设置'
+        },
+        type: {
+            type: 'string',
+            const: 'scan_invalid',
+            title: 'Type'
+        }
+    },
+    type: 'object',
+    required: [
+        'library_id',
+        'type'
+    ],
+    title: 'ScanInvalidSubmission'
+} as const;
+
 export const ScanModeSchema = {
     type: 'string',
     enum: [
@@ -6688,6 +7048,123 @@ export const ScrapingConfigSchema = {
     },
     type: 'object',
     title: 'ScrapingConfig'
+} as const;
+
+export const SelectionNoticeResponseSchema = {
+    properties: {
+        kind: {
+            $ref: '#/components/schemas/FootprintNoticeKind'
+        },
+        path: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Path'
+        },
+        count: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Count'
+        },
+        detail: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Detail'
+        }
+    },
+    type: 'object',
+    required: [
+        'kind'
+    ],
+    title: 'SelectionNoticeResponse',
+    description: '展开时未能纳入清单的项. 面板按 ``kind`` 用界面语言给出文案, 因此服务端不带文案.'
+} as const;
+
+export const SelectionRequestSchema = {
+    properties: {
+        media_file_ids: {
+            items: {
+                type: 'integer'
+            },
+            type: 'array',
+            minItems: 1,
+            title: 'Media File Ids',
+            description: '选中的媒体文件 ID; 必须属于该库'
+        },
+        include_work_dir: {
+            type: 'boolean',
+            title: 'Include Work Dir',
+            description: '连同作品文件夹一起删除; 仅在该目录只含这一条媒体索引且不是库根时提供',
+            default: false
+        }
+    },
+    type: 'object',
+    required: [
+        'media_file_ids'
+    ],
+    title: 'SelectionRequest',
+    description: '由选中的媒体文件展开显式来源清单.'
+} as const;
+
+export const SelectionSummaryResponseSchema = {
+    properties: {
+        exists: {
+            type: 'boolean',
+            title: 'Exists'
+        },
+        inventory_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Inventory Id'
+        },
+        notices: {
+            items: {
+                $ref: '#/components/schemas/SelectionNoticeResponse'
+            },
+            type: 'array',
+            title: 'Notices',
+            default: []
+        },
+        truncated: {
+            type: 'boolean',
+            title: 'Truncated',
+            default: false
+        },
+        dropped: {
+            type: 'integer',
+            title: 'Dropped',
+            default: 0
+        }
+    },
+    type: 'object',
+    required: [
+        'exists'
+    ],
+    title: 'SelectionSummaryResponse',
+    description: '展开结果. 条目自库根展开 (库外产物挂在根下), 面板按分页接口读取.'
 } as const;
 
 export const SiteConfigSchema = {
@@ -7589,13 +8066,14 @@ export const TaskTypeSchema = {
     enum: [
         'scrape',
         'organize',
-        'trash',
         'refresh',
         'cleanup',
         'upscale',
         'r18_import',
         'actor_scrape',
-        'rescrape'
+        'rescrape',
+        'scan_invalid',
+        'delete'
     ],
     title: 'TaskType'
 } as const;
@@ -7743,61 +8221,51 @@ export const ToolResultRowSchema = {
     description: '工具回执. 名字与参数在同 id 的 `ToolCallRow`, 故本行只带结果 (续批的回合不会再报调用名).'
 } as const;
 
-export const TrashSubmissionSchema = {
+export const TrashSummaryResponseSchema = {
     properties: {
-        library_id: {
-            type: 'integer',
-            title: 'Library Id',
-            description: '所属 Library ID; 扫描/整理在该媒体库下进行',
-            'x-widget': 'LibraryPicker'
+        exists: {
+            type: 'boolean',
+            title: 'Exists'
+        },
+        inventory_id: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Inventory Id'
         },
         path: {
-            type: 'string',
-            title: 'Path',
-            description: '要扫描的目录路径 (覆盖 Library 路径, 必须为 Library 子目录).',
-            default: '',
-            'x-path-type': 'directory',
-            'x-widget': 'PathPicker'
-        },
-        recursive: {
             anyOf: [
                 {
-                    type: 'boolean'
+                    type: 'string'
                 },
                 {
                     type: 'null'
                 }
             ],
-            title: 'Recursive',
-            description: '覆盖 Library 的 recursive; None 沿用库设置'
+            title: 'Path'
         },
-        patterns: {
-            anyOf: [
-                {
-                    items: {
-                        type: 'string'
-                    },
-                    type: 'array'
-                },
-                {
-                    type: 'null'
-                }
-            ],
-            title: 'Patterns',
-            description: '覆盖 Library 的 patterns; None 沿用库设置'
+        truncated: {
+            type: 'boolean',
+            title: 'Truncated',
+            default: false
         },
-        type: {
-            type: 'string',
-            const: 'trash',
-            title: 'Type'
+        dropped: {
+            type: 'integer',
+            title: 'Dropped',
+            default: 0
         }
     },
     type: 'object',
     required: [
-        'library_id',
-        'type'
+        'exists'
     ],
-    title: 'TrashSubmission'
+    title: 'TrashSummaryResponse',
+    description: '回收站历史内容: 展开即产出显式来源清单, 面板套用同一套审查与删除.'
 } as const;
 
 export const TurnTokenUsageSchema = {
