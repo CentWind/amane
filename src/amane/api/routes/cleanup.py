@@ -59,7 +59,9 @@ def _relative(inventory: CleanupInventory, path: Path) -> str:
     return path.relative_to(inventory.root).as_posix()
 
 
-def _to_response(inventory: CleanupInventory, node: InventoryNode, *, children: bool) -> InventoryNodeResponse:
+def _to_response(
+    inventory: CleanupInventory, node: InventoryNode, *, children: bool, noise: bool
+) -> InventoryNodeResponse:
     return InventoryNodeResponse(
         path=_relative(inventory, node.path),
         name=node.name,
@@ -72,8 +74,12 @@ def _to_response(inventory: CleanupInventory, node: InventoryNode, *, children: 
         entry_count=node.entry_count,
         entry_bytes=node.entry_bytes,
         will_be_empty=node.will_be_empty,
-        has_children=bool(node.children),
-        children=[_to_response(inventory, child, children=False) for child in node.children] if children else None,
+        noise=node.noise,
+        # 折叠时子节点会被过滤掉, 因此可展开与否按过滤后的集合算: 否则面板会给出一个展开后为空的行.
+        has_children=any(noise or not child.noise for child in node.children),
+        children=[_to_response(inventory, child, children=False, noise=noise) for child in node.children]
+        if children
+        else None,
     )
 
 
@@ -85,11 +91,17 @@ def _inventory_by_id(store: InventoryStore, library_id: int, inventory_id: str |
     return inventory
 
 
-def _page(inventory: CleanupInventory, node: InventoryNode, *, offset: int, limit: int) -> InventoryNodePage:
+def _page(
+    inventory: CleanupInventory, node: InventoryNode, *, offset: int, limit: int, noise: bool
+) -> InventoryNodePage:
+    """按页给出子节点. ``noise=False`` 时折叠系统与同步工具的产物 (用户可展开查看)."""
+    children = [child for child in node.children if noise or not child.noise]
     return InventoryNodePage(
         path=_relative(inventory, node.path),
-        items=[_to_response(inventory, child, children=False) for child in node.children[offset : offset + limit]],
-        total=len(node.children),
+        items=[
+            _to_response(inventory, child, children=False, noise=noise) for child in children[offset : offset + limit]
+        ],
+        total=len(children),
         offset=offset,
         limit=limit,
         entry_count=node.entry_count,
@@ -135,6 +147,7 @@ async def get_cleanup_inventory(library_id: int, repo: RepoDep, runtime: Runtime
         dropped=inventory.dropped,
         skipped_dirs=inventory.skipped_dirs,
         skipped_files=inventory.skipped_files,
+        blocked_dirs=inventory.blocked.unexplained,
         scan_running=running,
         last_scan_error=last_error,
     )
@@ -148,13 +161,14 @@ async def get_cleanup_inventory_nodes(
     inventory_id: Annotated[str | None, Query(description="指定清单; 缺省用规则来源的最新一份")] = None,
     offset: Annotated[int, Query(ge=0, description="从第几个子节点开始")] = 0,
     limit: Annotated[int, Query(ge=1, le=MAX_NODE_PAGE_SIZE, description="本页最多返回多少个子节点")] = NODE_PAGE_SIZE,
+    noise: Annotated[bool, Query(description="是否列出系统与同步工具的产物")] = False,
 ) -> InventoryNodePage:
     """展开某个节点的一页子节点. 库可能有上万条候选, 因此不整份下发."""
     inventory = _inventory_by_id(runtime.inventory_store, library_id, inventory_id)
     node = find_inventory_node(inventory_tree(inventory), _resolve(inventory, path))
     if node is None:
         raise HTTPException(status_code=404, detail=f"Inventory node not found: {path}")
-    return _page(inventory, node, offset=offset, limit=limit)
+    return _page(inventory, node, offset=offset, limit=limit, noise=noise)
 
 
 def _resolve(inventory: CleanupInventory, raw: str) -> Path:
