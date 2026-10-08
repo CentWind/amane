@@ -269,7 +269,7 @@ class ScrapingConfig(BaseModel):
     crop_poster: bool = True
 
     poster_ratio: float = Field(default=0.7, ge=0.3, le=1.0)
-    """海报裁剪宽高比 (w/h). 从缩略图右侧裁剪生成海报. 默认 0.7 (贴近常见 379x538 / 高清海报)."""
+    """海报裁剪宽高比 (w/h). 从封面右侧裁剪生成海报. 默认 0.7 (贴近常见 379x538 / 高清海报)."""
 
     poster_crop_skip_ratio: float = Field(default=0.9, ge=0.5, le=1.0)
     """海报裁剪跳过阈值. 当 poster 候选高度已达 thumb 高度的此比例以上时, 视为候选够用, 不再从 thumb 裁剪
@@ -493,8 +493,8 @@ class BrowserConfig(BaseModel):
 class NetworkConfig(BaseModel):
     proxy: str | None = None
     timeout: float = Field(default=10.0, ge=5.0, le=300.0)
-    max_retries: int = Field(default=3, ge=0, le=10)
-    """实为总尝试次数 (``3`` → 最多发 3 次请求), 名字为兼容既有配置保留; 0 表示不重试."""
+    max_retries: int = Field(default=2, ge=0, le=10)
+    """首次请求之外的重试次数 (``2`` → 最多发 3 次请求); 0 表示不重试. 名字为兼容既有配置保留."""
     max_clients: int = Field(default=50, ge=5, le=500, json_schema_extra={"x-hidden": True})
     browser: BrowserConfig = Field(default_factory=BrowserConfig)
 
@@ -648,17 +648,17 @@ class AgentConfig(BaseModel):
 
 
 class ActorScrapingConfig(BaseModel):
-    """档案站顺序填空, 头像站优先."""
+    """资料来源顺序填空, 头像来源优先."""
 
     profile_sites: list[SiteName] = Field(
         default_factory=lambda: list(ACTOR_PROFILE_SITES),
         json_schema_extra=site_list_schema(ACTOR_PROFILE_SITES, ordered=True),
-        description="档案源顺序 (标量填空优先级); 仅演员档案站",
+        description="资料来源顺序 (单源字段填空优先级); 仅演员资料来源",
     )
     image_sites: list[SiteName] = Field(
         default_factory=lambda: list(ACTOR_IMAGE_SITES),
         json_schema_extra=site_list_schema(ACTOR_IMAGE_SITES, ordered=True),
-        description="头像源顺序 (优先于档案站附图); 仅演员头像站",
+        description="头像来源顺序 (优先于资料来源附图); 仅演员头像来源",
     )
     download_images: bool = True
     auto_scrape: bool = True

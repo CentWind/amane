@@ -5,7 +5,8 @@
 
 ## 用语规范
 
-**最高优先级.** 凡需语言表达的输出 (注释、开发文档、提交说明、Pull Request、与维护者的对话) 必须遵守 [`docs/dev/writing.md`](docs/dev/writing.md). 与本文其它条款冲突时以该文档为准.
+**最高优先级.** 凡需语言表达的输出 (注释、开发文档、提交说明、Pull Request、与维护者的对话) 必须遵守 [`docs/dev/writing.md`](docs/dev/writing.md) (遣词造句) 与 [`docs/dev/terms.md`](docs/dev/terms.md) (项目用词). 与本文其它条款冲突时以这两份为准.
+两份都是按需查阅: 引入新概念、写用户文案或给概念改名时查 `terms.md`, 不要求通读.
 
 ## 项目定位
 

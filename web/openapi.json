@@ -273,7 +273,7 @@
           "cleanup"
         ],
         "summary": "Get Cleanup Trash",
-        "description": "展开回收站历史内容: 产出回收站来源的清单, 前端拿到要展开的目录再按页读.\n\n展开本身是只读遍历, 但代价随回收站体积增长, 而同一个打开动作可能重复发请求 (渲染两次 / 重连):\n窗口内已有的一份直接复用, 免得重走整棵树并往存放里堆用不到的清单.",
+        "description": "展开回收目录的历史内容: 产出回收目录来源的清单, 前端拿到要展开的目录再按页读.\n\n展开本身是只读遍历, 但代价随回收目录大小增长, 而同一个打开动作可能重复发请求 (渲染两次 / 重连):\n窗口内已有的一份直接复用, 免得重走整棵树并往存放里堆用不到的清单.",
         "operationId": "get_cleanup_trash",
         "parameters": [
           {
@@ -3527,7 +3527,7 @@
           "facets"
         ],
         "summary": "Delete Facet",
-        "description": "删除分类. 爬取侧写入黑名单并从 Metadata 真值剔除; user_tag 硬删.",
+        "description": "删除分类. 爬取侧写入剔除规则并从 Metadata 真值移除; user_tag 硬删.",
         "operationId": "delete_facet",
         "parameters": [
           {
@@ -5730,7 +5730,7 @@
           "agent"
         ],
         "summary": "Follow Agent Events",
-        "description": "跟随 ``after_seq`` 之后的回放行, 供页面接上进度: 整段历史走 ``/trace``, 这里只接新行.\n\n页面发起的回合也走这条通道 (展示只认回放行), 因此必须能给出起始位置: 否则每接一次都要重发整段历史.\n\n只订阅, **不**启动回合, 故进行中的回合也不会 409; 回合结束且追平后关闭.",
+        "description": "跟随 ``after_seq`` 之后的回放行, 供页面接上进度: 整段历史经 ``/trace``, 这里只接新行.\n\n页面发起的回合也经由这条通道 (展示只认回放行), 因此必须能给出起始位置: 否则每接一次都要重发整段历史.\n\n只订阅, **不**启动回合, 故进行中的回合也不会 409; 回合结束且追平后关闭.",
         "operationId": "follow_agent_events",
         "parameters": [
           {
@@ -6444,7 +6444,7 @@
             },
             "type": "array",
             "title": "Profile Sites",
-            "description": "档案源顺序 (标量填空优先级); 仅演员档案站",
+            "description": "资料来源顺序 (单源字段填空优先级); 仅演员资料来源",
             "x-ordered": true
           },
           "image_sites": {
@@ -6456,7 +6456,7 @@
             },
             "type": "array",
             "title": "Image Sites",
-            "description": "头像源顺序 (优先于档案站附图); 仅演员头像站",
+            "description": "头像来源顺序 (优先于资料来源附图); 仅演员头像来源",
             "x-ordered": true
           },
           "download_images": {
@@ -6478,7 +6478,7 @@
         },
         "type": "object",
         "title": "ActorScrapingConfig",
-        "description": "档案站顺序填空, 头像站优先."
+        "description": "资料来源顺序填空, 头像来源优先."
       },
       "ActorSortField": {
         "type": "string",
@@ -8923,7 +8923,7 @@
             "$ref": "#/components/schemas/NetworkConfig",
             "default": {
               "timeout": 10.0,
-              "max_retries": 3,
+              "max_retries": 2,
               "max_clients": 50,
               "browser": {
                 "backend": "off",
@@ -11380,7 +11380,7 @@
             "maximum": 10.0,
             "minimum": 0.0,
             "title": "Max Retries",
-            "default": 3
+            "default": 2
           },
           "max_clients": {
             "type": "integer",
@@ -11537,7 +11537,7 @@
           "prune_empty_dirs": {
             "type": "boolean",
             "title": "Prune Empty Dirs",
-            "description": "移动后删除本次腾空的目录 (库根与 .amane_trash 除外); 复制 / 硬链接 / 软链接方式不移走源文件, 该开关无效",
+            "description": "移动后删除本次腾空的目录 (库根与 .amane_trash 除外); 复制 / 硬链接 / 符号链接方式不移走源文件, 该开关无效",
             "default": true
           },
           "type": {
@@ -14223,7 +14223,7 @@
           "exists"
         ],
         "title": "TrashSummaryResponse",
-        "description": "回收站历史内容: 展开即产出显式来源清单, 面板套用同一套审查与删除."
+        "description": "回收目录历史内容: 展开即产出清单, 面板套用同一套审查与删除."
       },
       "TurnTokenUsage": {
         "properties": {
@@ -14369,7 +14369,7 @@
           "text"
         ],
         "title": "UserMessageRow",
-        "description": "用户输入. 批准 / 拒绝只以 tool return 进模型上下文, 不产生此行的旁白."
+        "description": "用户输入. 批准 / 拒绝只以 tool return 进模型上下文, 不产生此行的附加说明."
       },
       "UserTagLinksResponse": {
         "properties": {
@@ -14597,7 +14597,7 @@
           "definition"
         ],
         "title": "WatermarkKind",
-        "description": "整理落盘封面角标类别. 清晰度共用 definition, 不论 4K/1080p."
+        "description": "整理落盘封面角标类别. 分辨率共用 definition, 不论 4K/1080p."
       },
       "WorkerConfig": {
         "properties": {

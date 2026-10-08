@@ -190,19 +190,19 @@ export type ActorScrapeSubmission = {
 /**
  * ActorScrapingConfig
  *
- * 档案站顺序填空, 头像站优先.
+ * 资料来源顺序填空, 头像来源优先.
  */
 export type ActorScrapingConfig = {
     /**
      * Profile Sites
      *
-     * 档案源顺序 (标量填空优先级); 仅演员档案站
+     * 资料来源顺序 (单源字段填空优先级); 仅演员资料来源
      */
     profile_sites?: Array<'minnano' | 'javdb' | 'wikipedia' | 'theporndb' | 'avbase'>;
     /**
      * Image Sites
      *
-     * 头像源顺序 (优先于档案站附图); 仅演员头像站
+     * 头像来源顺序 (优先于资料来源附图); 仅演员头像来源
      */
     image_sites?: Array<'gfriends'>;
     /**
@@ -2714,7 +2714,7 @@ export type OrganizeSubmission = {
     /**
      * Prune Empty Dirs
      *
-     * 移动后删除本次腾空的目录 (库根与 .amane_trash 除外); 复制 / 硬链接 / 软链接方式不移走源文件, 该开关无效
+     * 移动后删除本次腾空的目录 (库根与 .amane_trash 除外); 复制 / 硬链接 / 符号链接方式不移走源文件, 该开关无效
      */
     prune_empty_dirs?: boolean;
     /**
@@ -4206,7 +4206,7 @@ export type ToolResultRow = {
 /**
  * TrashSummaryResponse
  *
- * 回收站历史内容: 展开即产出显式来源清单, 面板套用同一套审查与删除.
+ * 回收目录历史内容: 展开即产出清单, 面板套用同一套审查与删除.
  */
 export type TrashSummaryResponse = {
     /**
@@ -4310,7 +4310,7 @@ export type UpscaleSubmission = {
 /**
  * UserMessageRow
  *
- * 用户输入. 批准 / 拒绝只以 tool return 进模型上下文, 不产生此行的旁白.
+ * 用户输入. 批准 / 拒绝只以 tool return 进模型上下文, 不产生此行的附加说明.
  */
 export type UserMessageRow = {
     /**
@@ -4487,7 +4487,7 @@ export type WatermarkCorner = 'top_left' | 'top_right' | 'bottom_left' | 'bottom
 /**
  * WatermarkKind
  *
- * 整理落盘封面角标类别. 清晰度共用 definition, 不论 4K/1080p.
+ * 整理落盘封面角标类别. 分辨率共用 definition, 不论 4K/1080p.
  */
 export type WatermarkKind = 'subtitle' | 'uncensored' | 'cracked' | 'leaked' | 'definition';
 

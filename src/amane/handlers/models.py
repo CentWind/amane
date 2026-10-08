@@ -32,11 +32,11 @@ class LibraryBase(BaseModel):
         """就地写回 Library 默认值与覆盖; path 非库子目录时 403."""
         lib = await repo.get_library(self.library_id)
         if lib is None:
-            raise HTTPException(status_code=404, detail=f"Library {self.library_id} not found")
+            raise HTTPException(status_code=404, detail=f"媒体库 {self.library_id} 不存在")
         if self.path and not is_descendant(self.path, lib.path):
             raise HTTPException(
                 status_code=HTTP_403_FORBIDDEN,
-                detail=f"Path {self.path} is not a descendant of library path {lib.path}",
+                detail=f"路径 {self.path} 不在媒体库路径 {lib.path} 之下",
             )
         # 范围路径与库路径必须同一形式 (文件选择器给的是真实路径): 索引与清理清单都按字面路径比较,
         # 两种写法会把同一个文件算成两条索引. 库路径尚未解析为真实路径的旧库保持原样, 否则范围会与既有索引分家.
@@ -148,7 +148,7 @@ class OrganizePayload(LibraryBase):
     )
     prune_empty_dirs: bool = Field(
         default=True,
-        description="移动后删除本次腾空的目录 (库根与 .amane_trash 除外); 复制 / 硬链接 / 软链接方式不移走源文件, 该开关无效",
+        description="移动后删除本次腾空的目录 (库根与 .amane_trash 除外); 复制 / 硬链接 / 符号链接方式不移走源文件, 该开关无效",
     )
 
     async def resolve(self, repo: Repository) -> None:
@@ -179,7 +179,7 @@ class OrganizeResult(BaseModel):
 
 
 class ScanInvalidPayload(LibraryScanBase):
-    """只读遍历 path 范围内的无效文件与已空目录, 产出清单. path 缺省为库根."""
+    """只读遍历 path 范围内的无效文件与空目录, 产出清单. path 缺省为库根."""
 
 
 class ScanInvalidResult(BaseModel):
@@ -230,7 +230,7 @@ class DeleteResult(BaseModel):
     indexed: int = 0
     """随之删除的 MediaFile 行数."""
     reverify_rejected: int = 0
-    """执行前复验未通过的条目数; 拒绝原因见 `delete.py::_reverify` (目录里出现媒体 / 白名单外的
+    """执行前复验未通过的条目数; 拒绝原因见 `delete.py::_reverify` (目录里出现媒体 / 未识别的
     文件 / 下载进度, 目录不再为空或无法读取), 这些条目同时计入 `failed`."""
 
 

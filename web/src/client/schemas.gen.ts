@@ -329,7 +329,7 @@ export const ActorScrapingConfigSchema = {
             },
             type: 'array',
             title: 'Profile Sites',
-            description: '档案源顺序 (标量填空优先级); 仅演员档案站',
+            description: '资料来源顺序 (单源字段填空优先级); 仅演员资料来源',
             'x-ordered': true
         },
         image_sites: {
@@ -341,7 +341,7 @@ export const ActorScrapingConfigSchema = {
             },
             type: 'array',
             title: 'Image Sites',
-            description: '头像源顺序 (优先于档案站附图); 仅演员头像站',
+            description: '头像来源顺序 (优先于资料来源附图); 仅演员头像来源',
             'x-ordered': true
         },
         download_images: {
@@ -363,7 +363,7 @@ export const ActorScrapingConfigSchema = {
     },
     type: 'object',
     title: 'ActorScrapingConfig',
-    description: '档案站顺序填空, 头像站优先.'
+    description: '资料来源顺序填空, 头像来源优先.'
 } as const;
 
 export const ActorSortFieldSchema = {
@@ -2874,7 +2874,7 @@ export const HotSettingsSchema = {
             $ref: '#/components/schemas/NetworkConfig',
             default: {
                 timeout: 10,
-                max_retries: 3,
+                max_retries: 2,
                 max_clients: 50,
                 browser: {
                     backend: 'off',
@@ -5370,7 +5370,7 @@ export const NetworkConfigSchema = {
             maximum: 10,
             minimum: 0,
             title: 'Max Retries',
-            default: 3
+            default: 2
         },
         max_clients: {
             type: 'integer',
@@ -5529,7 +5529,7 @@ export const OrganizeSubmissionSchema = {
         prune_empty_dirs: {
             type: 'boolean',
             title: 'Prune Empty Dirs',
-            description: '移动后删除本次腾空的目录 (库根与 .amane_trash 除外); 复制 / 硬链接 / 软链接方式不移走源文件, 该开关无效',
+            description: '移动后删除本次腾空的目录 (库根与 .amane_trash 除外); 复制 / 硬链接 / 符号链接方式不移走源文件, 该开关无效',
             default: true
         },
         type: {
@@ -8284,7 +8284,7 @@ export const TrashSummaryResponseSchema = {
         'exists'
     ],
     title: 'TrashSummaryResponse',
-    description: '回收站历史内容: 展开即产出显式来源清单, 面板套用同一套审查与删除.'
+    description: '回收目录历史内容: 展开即产出清单, 面板套用同一套审查与删除.'
 } as const;
 
 export const TurnTokenUsageSchema = {
@@ -8434,7 +8434,7 @@ export const UserMessageRowSchema = {
         'text'
     ],
     title: 'UserMessageRow',
-    description: '用户输入. 批准 / 拒绝只以 tool return 进模型上下文, 不产生此行的旁白.'
+    description: '用户输入. 批准 / 拒绝只以 tool return 进模型上下文, 不产生此行的附加说明.'
 } as const;
 
 export const UserTagLinksResponseSchema = {
@@ -8671,7 +8671,7 @@ export const WatermarkKindSchema = {
         'definition'
     ],
     title: 'WatermarkKind',
-    description: '整理落盘封面角标类别. 清晰度共用 definition, 不论 4K/1080p.'
+    description: '整理落盘封面角标类别. 分辨率共用 definition, 不论 4K/1080p.'
 } as const;
 
 export const WorkerConfigSchema = {
