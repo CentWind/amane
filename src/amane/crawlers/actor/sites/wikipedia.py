@@ -14,7 +14,7 @@ from amane.plugins.models import SourceCapability
 from amane.utils.dates import normalize_calendar_date
 
 from ...base import CrawlerProfile
-from ...parsing import extract_text
+from ...parsing import extract_text, is_same_name
 from ..base import ActorCrawler
 from ..models import ActorMetadata
 
@@ -83,12 +83,12 @@ class WikipediaActorCrawler(ActorCrawler):
 
     async def fetch(self, name: str) -> ActorMetadata | None:
         candidates = await self._wikidata_search(name)
-        # 逐候选校验实体 (描述 / P106 职业).
+        # 逐候选校验实体 (描述 / P106 职业), 并要求名字相符.
         for qid, desc in candidates:
             entity = await self._entity_data(qid)
             if entity is None:
                 continue
-            if _is_av_entity(entity):
+            if _is_av_entity(entity) and _name_matches(entity, name):
                 return await self._build_metadata(qid, entity, desc)
         return None
 
@@ -208,6 +208,29 @@ def _match_av_keyword(description: str) -> bool:
 
 def _is_av_entity(entity: dict[str, Any]) -> bool:
     return _descriptions_match(entity) or _occupation_match(entity)
+
+
+def _name_matches(entity: dict[str, Any], name: str) -> bool:
+    """实体名 (标签或别名, 任一语言) 与查找名 NFKC 折叠后相等才算命中.
+
+    ``wbsearchentities`` 是模糊检索: 只按描述与职业筛实体, 会把名字完全不同的他人档案当成本人.
+    """
+    return any(is_same_name(value, name) for value in _entity_name_values(entity))
+
+
+def _entity_name_values(entity: dict[str, Any]) -> list[str]:
+    """实体名候选: ``labels`` 与 ``aliases`` 的全部语言取值."""
+    out: list[str] = []
+    for key in ("labels", "aliases"):
+        groups = entity.get(key)
+        if not isinstance(groups, dict):
+            continue
+        for items in groups.values():
+            for item in items if isinstance(items, list) else [items]:
+                value = item.get("value") if isinstance(item, dict) else None
+                if isinstance(value, str) and value.strip():
+                    out.append(value)
+    return out
 
 
 def _descriptions_match(entity: dict[str, Any]) -> bool:

@@ -1,12 +1,12 @@
 import re
-from urllib.parse import urljoin
+from urllib.parse import quote, urljoin
 
 from parsel import Selector
 
 from ...enums import SiteName
 from ..base import Crawler, CrawlerProfile
 from ..models import FetchOptions, MediaMetadata, SearchQuery, film_actors
-from ..parsing import extract_all_texts, extract_text
+from ..parsing import extract_all_texts, extract_text, is_same_number, leading_token
 
 
 class AiravCrawler(Crawler):
@@ -15,13 +15,17 @@ class AiravCrawler(Crawler):
         return CrawlerProfile(name=SiteName.AIRAV, base_url="https://airav.io")
 
     async def _search(self, query: SearchQuery, options: FetchOptions | None = None) -> str | None:
+        """条目标题以番号开头, 与入参不同者视为未命中."""
         number = query.number
-        url = f"{self.base_url}/search?keyword={number}"
+        url = f"{self.base_url}/search_result?kw={quote(number)}"
         text = await self.client.get_html(url)
         html = Selector(text=text)
-        links = html.xpath('//div[@class="oneVideo"]//a/@href').getall()
-        urls = [urljoin(self.base_url, href) for href in links][:5]
-        return urls[0] if urls else None
+        for item in html.xpath('//div[contains(@class,"oneVideo")]'):
+            href = item.xpath(".//a/@href").get()
+            title = item.xpath("string(.//h5)").get() or ""
+            if href and is_same_number(leading_token(title), number):
+                return urljoin(self.base_url, href)
+        return None
 
     async def _scrape(self, url: str, options: FetchOptions | None = None) -> MediaMetadata | None:
         text = await self.client.get_html(url)

@@ -15,7 +15,7 @@ from amane.plugins.models import SourceCapability
 from amane.utils.dates import normalize_calendar_date
 
 from ...base import CrawlerProfile
-from ...parsing import extract_text
+from ...parsing import extract_text, is_same_name, normalize_name
 from ..base import ActorCrawler
 from ..models import ActorMetadata
 
@@ -73,23 +73,18 @@ class MinnanoActorCrawler(ActorCrawler):
         return await self.client.check(self._search_url("あ"), cookies=self.cookies)
 
     def _pick_search_hit(self, html: Selector, name: str) -> str | None:
-        # 精确名优先; 否则取首条演员行.
+        """行标题与查找名 (去掉注记括号后) 相等才算命中; 确认不了返回 None."""
+        if not name.strip():
+            return None
         rows = html.xpath('//table[contains(@class,"tbllist") and contains(@class,"actress")]//tr[td]')
-        exact: str | None = None
-        first: str | None = None
         for row in rows:
             title = extract_text(row, './/h2[contains(@class,"ttl")]/a/text()')
             href = extract_text(row, './/h2[contains(@class,"ttl")]/a/@href')
-            if not href or not _ACTRESS_HREF_RE.search(href):
+            if not title or not href or not _ACTRESS_HREF_RE.search(href):
                 continue
-            clean_href = href.split("?", 1)[0]
-            url = urljoin(self.base_url + "/", clean_href)
-            if first is None:
-                first = url
-            if title and title.strip() == name:
-                exact = url
-                break
-        return exact or first
+            if is_same_name(_strip_annotations(title), name):
+                return urljoin(self.base_url + "/", href.split("?", 1)[0])
+        return None
 
     async def _scrape(self, url: str) -> ActorMetadata | None:
         text = await self.client.get_html(url, cookies=self.cookies)
@@ -152,7 +147,7 @@ def parse_minnano_detail(html_text: str, *, page_url: str, base_url: str) -> Act
 
 
 def _parse_name_line(raw: str) -> tuple[str, list[str]]:
-    text = unicodedata.normalize("NFKC", raw).strip()
+    text = normalize_name(raw)
     m = _NAME_RE.match(text)
     if not m:
         return text, []
