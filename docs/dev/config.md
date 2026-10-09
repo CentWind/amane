@@ -77,6 +77,12 @@ Worker 替换不取消运行中任务: `_rebuild()` 构建新 worker 后旧 work
 
 建图对编译后站点链的消费见 [task-system.md](task-system.md), 默认表取舍见 [content-routes.md](content-routes.md).
 
+`prefix_content_types` 是番号前缀→内容类型的用户约定: 不区分大小写, 多前缀命中取最长. 它在推断**之后**覆盖结果, 因此目录关键词 (欧美 / 里番 / getchu) 也会被覆盖; 显式给出的类型不经过推断, 不受它影响.
+
+影片 content_type 的判定责任在 `ScrapeHandler`: `ScrapePayload.content_type` 为空表示「按番号与挂载文件推断」, 由 handler 用每次 rebuild 重建的配置解析 (前缀约定在此生效). 生产者不得自行推断后落进 payload — 那既让前缀约定失效, 也让热重载失效. 目录关键词需要挂载文件, 因此按 `media_file_id` 取路径的路径都能覆盖到; 无 `media_file_id` 的路径 (`rescrape`、批量刮削路由) 自行传 `prefix_types` 给 `infer_content_type`.
+
+`MediaFile` 的相位列是 path 的投影, 与 payload 同理: 相位在创建与改 path 时按调用传入 `prefix_types`, 不由调用方事后改写. `Repository` 属于不重建的对象, 不得持有配置引用. `WatcherService` 同样不重建, 其配置经构造期注入的可调用对象现取 — 静态注入会让前缀约定改了不生效.
+
 ## `actor_scraping` (Hot)
 
 演员刮削与影片 `scraping` 分 section: 影片管线不读演员站列表, 演员任务也不读 `field_priority` / `field_blacklist`. 契约 (实现见 `ActorScrapeHandler` / `aggregate.actor`):
