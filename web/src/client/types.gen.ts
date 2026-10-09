@@ -3839,6 +3839,12 @@ export type ScrapingConfig = {
      */
     jpeg_quality?: number;
     /**
+     * Prefix Content Types
+     */
+    prefix_content_types?: {
+        [key: string]: ContentType;
+    };
+    /**
      * Content Routes
      */
     content_routes?: {

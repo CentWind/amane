@@ -368,6 +368,21 @@
           }
         }
       },
+      "prefix_content_types": {
+        "label": "前缀类型约定",
+        "description": "按番号前缀约定影片类型, 命中时覆盖解析结果",
+        "$": {
+          "options": {
+            "censored": "有码",
+            "uncensored": "无码",
+            "chinese": "国产",
+            "western": "欧美",
+            "fc2": "FC2",
+            "amateur": "素人",
+            "hentai": "动漫"
+          }
+        }
+      },
       "content_routes": {
         "label": "类型路由",
         "description": "按影片类型指定来源站点和默认优先级",

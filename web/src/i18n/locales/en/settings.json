@@ -368,6 +368,21 @@
           }
         }
       },
+      "prefix_content_types": {
+        "label": "Prefix content types",
+        "description": "Content type by title prefix; overrides the parsed result",
+        "$": {
+          "options": {
+            "censored": "Censored",
+            "uncensored": "Uncensored",
+            "chinese": "Chinese",
+            "western": "Western",
+            "fc2": "FC2",
+            "amateur": "Amateur",
+            "hentai": "Hentai"
+          }
+        }
+      },
       "content_routes": {
         "label": "Type Routes",
         "description": "Sources and default priority by content type",

@@ -2724,6 +2724,7 @@ export const HotSettingsSchema = {
                 poster_ratio: 0.7,
                 poster_crop_skip_ratio: 0.9,
                 jpeg_quality: 95,
+                prefix_content_types: {},
                 content_routes: {
                     amateur: [
                         'mgstage',
@@ -7339,6 +7340,13 @@ export const ScrapingConfigSchema = {
             title: 'Jpeg Quality',
             default: 95,
             'x-hidden': true
+        },
+        prefix_content_types: {
+            additionalProperties: {
+                $ref: '#/components/schemas/ContentType'
+            },
+            type: 'object',
+            title: 'Prefix Content Types'
         },
         content_routes: {
             additionalProperties: {
