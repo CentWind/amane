@@ -100,7 +100,7 @@ def build_metadata_ops_capability() -> Capability[AgentDeps]:
         ctx: RunContext[AgentDeps],
         metadata_ids: list[int],
         use_cache: set[CacheKind] | None = None,
-        content_type: ContentType = ContentType.CENSORED,
+        content_type: ContentType | None = None,
     ) -> dict[str, Any]:
         """Enqueue SCRAPE tasks for metadata ids (by each row's number)."""
         cache_kinds = use_cache if use_cache is not None else {CacheKind.metadata, CacheKind.trans}

@@ -2,12 +2,13 @@
 Metadata / Actor 各自判定, 不依赖挂载文件是否存在.
 """
 
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from ..db import ActorSortField, TaskType
 from ..db.models import MetadataSortField, SortOrder
-from ..parsing import infer_content_type
+from ..parsing import ContentType, infer_content_type
 from .models import (
     ActorScrapePayload,
     CacheKind,
@@ -25,9 +26,10 @@ _USE_CACHE = {CacheKind.metadata, CacheKind.trans}
 
 
 class RescrapeHandler(TaskHandler[RescrapePayload, RescrapeResult]):
-    def __init__(self, repo: Repository) -> None:
+    def __init__(self, repo: Repository, prefix_types: Mapping[str, ContentType] | None = None) -> None:
         super().__init__(payload_t=RescrapePayload, result_t=RescrapeResult)
         self._repo = repo
+        self._prefix_types = prefix_types
 
     async def handle(self, payload: RescrapePayload) -> TaskResult[RescrapeResult]:
         updated_before = (
@@ -77,7 +79,9 @@ class RescrapeHandler(TaskHandler[RescrapePayload, RescrapeResult]):
                 task_type=TaskType.SCRAPE,
                 payload=ScrapePayload(
                     number=meta.number,
-                    content_type=infer_content_type(meta.number, first_path_by_metadata.get(meta_id)),
+                    content_type=infer_content_type(
+                        meta.number, first_path_by_metadata.get(meta_id), prefix_types=self._prefix_types
+                    ),
                     use_cache=_USE_CACHE,
                 ).model_dump(mode="json"),
                 priority=-1,

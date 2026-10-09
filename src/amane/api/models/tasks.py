@@ -28,7 +28,7 @@ from ...handlers import (
     UpscalePayload,
     UpscaleResult,
 )
-from ...parsing import ContentType, infer_content_type, parse_file_info
+from ...parsing import ContentType, parse_file_info
 
 
 class TaskChildStatusCounts(BaseModel):
@@ -184,7 +184,7 @@ class ScrapeRequest(BaseModel):
             if self.number is not None:
                 return ScrapePayload(
                     number=self.number,
-                    content_type=self.content_type or infer_content_type(self.number),
+                    content_type=self.content_type,
                     media_file_id=self.media_id,
                     use_cache=self.use_cache,
                 )
@@ -192,14 +192,14 @@ class ScrapeRequest(BaseModel):
             assert parsed.number is not None
             return ScrapePayload(
                 number=parsed.number,
-                content_type=self.content_type or parsed.content_type,
+                content_type=self.content_type,
                 media_file_id=self.media_id,
                 use_cache=self.use_cache,
             )
         assert self.number is not None
         return ScrapePayload(
             number=self.number,
-            content_type=self.content_type or infer_content_type(self.number),
+            content_type=self.content_type,
             use_cache=self.use_cache,
         )
 

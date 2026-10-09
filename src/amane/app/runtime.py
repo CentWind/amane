@@ -522,7 +522,9 @@ def build_handlers(
     if inventory_store is None:
         inventory_store = InventoryStore()
     handlers: dict[TaskType, TaskHandler[Any, Any]] = {
-        TaskType.REFRESH: RefreshHandler(repo, hot.watcher.media_extensions, inventory_store),
+        TaskType.REFRESH: RefreshHandler(
+            repo, hot.watcher.media_extensions, inventory_store, hot.scraping.prefix_content_types
+        ),
         TaskType.SCRAPE: ScrapeHandler(
             repo,
             factory,
@@ -546,7 +548,7 @@ def build_handlers(
         TaskType.DELETE: DeleteHandler(repo, inventory_store, hot, library_locks=library_locks),
         TaskType.CLEANUP: CleanupHandler(repo=repo, resource_store=resource_store),
         TaskType.UPSCALE: UpscaleHandler(resource_store, hot),
-        TaskType.RESCRAPE: RescrapeHandler(repo),
+        TaskType.RESCRAPE: RescrapeHandler(repo, hot.scraping.prefix_content_types),
     }
     # state_dir 缺省回退 cwd/data (精简构造场景).
     handlers[TaskType.R18_IMPORT] = R18ImportHandler(

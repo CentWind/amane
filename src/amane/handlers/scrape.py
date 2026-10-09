@@ -11,6 +11,7 @@ from ..enums import ActorGender, MetadataField
 from ..media import materialize_images
 from ..observability import current
 from ..observability.models import SiteOutcomeKind
+from ..parsing import infer_content_type
 from ..plugins.models import SourceDescriptor, SourceTrait
 from ._common import ensure_oshash, finalize_media_file
 from .models import ActorScrapePayload, CacheKind, ScrapePayload, ScrapeResult
@@ -60,7 +61,18 @@ class ScrapeHandler(TaskHandler[ScrapePayload, ScrapeResult]):
     async def handle(self, payload: ScrapePayload) -> TaskResult[ScrapeResult]:
         bind_contextvars(number=payload.number)
 
+        file = None
+        if payload.media_file_id:
+            file = await self._repo.get_media_file(media_id=payload.media_file_id)
+
         content_type = payload.content_type
+        if content_type is None:
+            # 显式类型优先; 未给定时按番号与挂载文件推断, 用户的前缀约定在此生效.
+            content_type = infer_content_type(
+                payload.number,
+                file.path if file else None,
+                prefix_types=self._config.scraping.prefix_content_types,
+            )
         progress_total = len(SCALAR_FIELDS) + _PROGRESS_POST_STEPS
         rec = current()
 
@@ -82,10 +94,6 @@ class ScrapeHandler(TaskHandler[ScrapePayload, ScrapeResult]):
         if not crawlers:
             current().warning("no crawlers available", requested=route)
             return TaskResult(success=False, error=f"番号 {payload.number} 没有可用来源")
-
-        file = None
-        if payload.media_file_id:
-            file = await self._repo.get_media_file(media_id=payload.media_file_id)
 
         # 仅当本次可用来源声明需要指纹时计算 oshash.
         file_hash = file.oshash if file else None

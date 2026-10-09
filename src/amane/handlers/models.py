@@ -11,7 +11,7 @@ from ..db import Library, MediaFileStatus, Repository
 from ..db.models import TaskType
 from ..enums import DownloadableResource
 from ..observability.models import OrganizeConflict, SiteOutcomeRecord
-from ..parsing import ContentType, infer_content_type
+from ..parsing import ContentType
 from ..utils.path import is_descendant, is_resolved_path, resolved_path
 
 if TYPE_CHECKING:
@@ -101,13 +101,14 @@ class RefreshResult(BaseModel):
 
 class ScrapePayload(BaseModel):
     number: str
-    content_type: ContentType = ContentType.CENSORED
+    content_type: ContentType | None = None
+    """显式内容类型; None 则 ScrapeHandler 按番号与挂载文件推断 (含 scraping.prefix_content_types)."""
     media_file_id: int | None = None
     use_cache: set[CacheKind] = {CacheKind.metadata, CacheKind.trans}
 
 
 def build_feed_scrape_payload(feed: Feed, number: str) -> ScrapePayload:
-    content_type = feed.content_type or infer_content_type(number)
+    content_type = feed.content_type
 
     use_cache: set[CacheKind] = set()
     for raw_kind in feed.use_cache:

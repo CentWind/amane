@@ -461,6 +461,54 @@ class TestContentRoutesFiltering:
         assert list(factory.requested) == [SiteName.JAVDB]
         assert SiteName.IQQTV not in factory.requested
 
+
+class TestContentTypeResolution:
+    """payload 未给 content_type 时, 由 ScrapeHandler 按番号与挂载文件推断, 前缀约定在此生效."""
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_inferred_from_number_when_unspecified(self, repo: Repository, resource_store):
+        """未给类型: 按番号推断, 路由取推断出的类型."""
+        factory = RecordingFactory({"javbus": MockCrawler()})
+        config = _config_with({ContentType.FC2: [SiteName.JAVBUS]})
+        h = ScrapeHandler(repo=repo, factory=factory, resource_store=resource_store, pipeline_config=config)
+
+        media = await repo.create_media_file(library_id=1, path="/media/FC2-1.mp4")
+        await h.handle(ScrapePayload(media_file_id=media.id, number="FC2-PPV-1234567"))
+
+        assert factory.requested == [SiteName.JAVBUS]
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_prefix_convention_overrides_inference(self, repo: Repository, resource_store):
+        """前缀约定命中时覆盖推断结果, 路由随之改走约定的类型."""
+        factory = RecordingFactory({"javbus": MockCrawler()})
+        scraping = ScrapingConfig(
+            content_routes={ContentType.CENSORED: [SiteName.JAVDB], ContentType.AMATEUR: [SiteName.JAVBUS]},
+            prefix_content_types={"MIDV": ContentType.AMATEUR},
+        )
+        config = HotSettings(scraping=scraping)
+        h = ScrapeHandler(repo=repo, factory=factory, resource_store=resource_store, pipeline_config=config)
+
+        media = await repo.create_media_file(library_id=1, path="/media/MIDV-123.mp4")
+        await h.handle(ScrapePayload(media_file_id=media.id, number="MIDV-123"))
+
+        assert factory.requested == [SiteName.JAVBUS]
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_explicit_type_not_overridden(self, repo: Repository, resource_store):
+        """显式给出的类型不被前缀约定覆盖."""
+        factory = RecordingFactory({"javdb": MockCrawler()})
+        scraping = ScrapingConfig(
+            content_routes={ContentType.CENSORED: [SiteName.JAVDB], ContentType.AMATEUR: [SiteName.JAVBUS]},
+            prefix_content_types={"MIDV": ContentType.AMATEUR},
+        )
+        config = HotSettings(scraping=scraping)
+        h = ScrapeHandler(repo=repo, factory=factory, resource_store=resource_store, pipeline_config=config)
+
+        media = await repo.create_media_file(library_id=1, path="/media/MIDV-123.mp4")
+        await h.handle(ScrapePayload(media_file_id=media.id, number="MIDV-123", content_type=ContentType.CENSORED))
+
+        assert factory.requested == [SiteName.JAVDB]
+
     @pytest.mark.asyncio(loop_scope="function")
     async def test_title_blacklist_uses_next_site(self, repo: Repository, resource_store):
         """title 排除 javdb 后取 dmm; studio 仍可用 javdb."""

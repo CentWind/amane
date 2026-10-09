@@ -82,16 +82,11 @@ class TestSubmitTask:
         assert scrape.status_code == 202
         assert scrape.json()["payload"]["number"] == "MIDV-123"
         assert sorted(scrape.json()["payload"]["use_cache"]) == ["metadata", "trans"]
-        assert scrape.json()["payload"]["content_type"] == "censored"
-        for number, expected in (
-            ("FC2-PPV-1234567", "fc2"),
-            ("vixen.23.04.15", "western"),
-            ("MD-0123", "chinese"),
-            ("MIDV-123", "censored"),
-            ("VIDEO", "western"),
-        ):
+        # 未指定类型时不落推断结果: ScrapeHandler 运行时按番号与挂载文件推断 (含前缀约定).
+        assert scrape.json()["payload"]["content_type"] is None
+        for number in ("FC2-PPV-1234567", "vixen.23.04.15", "MD-0123", "MIDV-123", "VIDEO"):
             inferred = await client.post("tasks", json={"type": "scrape", "number": number})
-            assert inferred.json()["payload"]["content_type"] == expected
+            assert inferred.json()["payload"]["content_type"] is None
         forced = await client.post(
             "tasks", json={"type": "scrape", "number": "FC2-PPV-1234567", "content_type": "censored"}
         )
@@ -100,7 +95,8 @@ class TestSubmitTask:
         media = await seed_library.create_media_file(library_id=1, path="/media/里番/MD-0123.mp4")
         assert media.id is not None
         hentai = await client.post("tasks", json={"type": "scrape", "media_id": media.id})
-        assert hentai.json()["payload"]["content_type"] == "hentai"
+        # 目录关键词推断同样在 ScrapeHandler 里按挂载文件路径进行.
+        assert hentai.json()["payload"]["content_type"] is None
         await seed_library.update_media_file(media.id, number="MIDV-123")
         cached = await client.post("tasks", json={"type": "scrape", "media_id": media.id, "use_cache": ["trans"]})
         assert cached.json()["payload"]["use_cache"] == ["trans"]
@@ -109,7 +105,7 @@ class TestSubmitTask:
         assert override.status_code == 202
         assert override.json()["payload"]["number"] == "MIDV-123"
         assert override.json()["payload"]["media_file_id"] == media.id
-        assert override.json()["payload"]["content_type"] == "censored"
+        assert override.json()["payload"]["content_type"] is None
         forced_override = await client.post(
             "tasks",
             json={
@@ -123,7 +119,7 @@ class TestSubmitTask:
         blank = await client.post("tasks", json={"type": "scrape", "media_id": media.id, "number": "   "})
         assert blank.status_code == 202
         assert blank.json()["payload"]["number"] == "MD-0123"
-        assert blank.json()["payload"]["content_type"] == "hentai"
+        assert blank.json()["payload"]["content_type"] is None
         missing = await client.post("tasks", json={"type": "scrape", "media_id": 9999, "number": "MIDV-123"})
         assert missing.status_code == 404
         assert (await client.post("tasks", json={"type": "scrape", "number": "   "})).status_code == 422
