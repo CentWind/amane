@@ -104,7 +104,7 @@ class ScrapeHandler(TaskHandler[ScrapePayload, ScrapeResult]):
             payload.number,
             file.path if file else None,
             file_hash,
-            payload.content_type,
+            content_type,
         )
 
         field_priority = compile_priority(

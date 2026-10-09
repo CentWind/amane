@@ -510,6 +510,31 @@ class TestContentTypeResolution:
         assert factory.requested == [SiteName.JAVDB]
 
     @pytest.mark.asyncio(loop_scope="function")
+    async def test_resolved_type_reaches_crawler(self, repo: Repository, resource_store):
+        """推断或前缀约定得到的类型须随检索查询传给爬虫, 不得传原始空值."""
+        captured: list[ContentType | None] = []
+
+        class CapturingCrawler:
+            name = SiteName.JAVDB
+
+            async def fetch(self, query, options=None) -> MediaMetadata | None:
+                captured.append(query.content_type)
+                return MediaMetadata.model_validate({"number": "MIDV-123", "title": "t"})
+
+        factory = RecordingFactory({"javdb": CapturingCrawler()})
+        scraping = ScrapingConfig(
+            content_routes={ContentType.AMATEUR: [SiteName.JAVDB]},
+            prefix_content_types={"MIDV": ContentType.AMATEUR},
+        )
+        config = HotSettings(scraping=scraping)
+        h = ScrapeHandler(repo=repo, factory=factory, resource_store=resource_store, pipeline_config=config)
+
+        media = await repo.create_media_file(library_id=1, path="/media/MIDV-123.mp4")
+        await h.handle(ScrapePayload(media_file_id=media.id, number="MIDV-123"))
+
+        assert captured == [ContentType.AMATEUR]
+
+    @pytest.mark.asyncio(loop_scope="function")
     async def test_title_blacklist_uses_next_site(self, repo: Repository, resource_store):
         """title 排除 javdb 后取 dmm; studio 仍可用 javdb."""
 
