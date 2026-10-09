@@ -257,6 +257,9 @@ class SiteConfig(BaseModel):
     )
     """OfficialCrawler 的番号前缀→域名路由."""
 
+    number_aliases: dict[str, str] = Field(default_factory=dict, json_schema_extra={"x-visible-keys": [SiteName.JAVDB]})
+    """本站的番号前缀→检索词前缀. 命中时用替换后的番号检索, 命中判据按该检索词比对."""
+
     rate_limit: float | None = Field(default=2, ge=0.1, le=100)
     """req/s. 全局 network.rate_limits 有此站点域名时全局优先."""
 

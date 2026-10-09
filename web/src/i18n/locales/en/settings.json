@@ -362,9 +362,28 @@
               }
             }
           },
+          "number_aliases": {
+            "label": "Number aliases",
+            "description": "Title prefixes mapped to the number form this site uses; the alias is searched first"
+          },
           "rate_limit": {
             "label": "Rate Limit",
             "description": "Max requests per second for this site"
+          }
+        }
+      },
+      "prefix_content_types": {
+        "label": "Prefix content types",
+        "description": "Content type by title prefix; overrides the parsed result",
+        "$": {
+          "options": {
+            "censored": "Censored",
+            "uncensored": "Uncensored",
+            "chinese": "Chinese",
+            "western": "Western",
+            "fc2": "FC2",
+            "amateur": "Amateur",
+            "hentai": "Hentai"
           }
         }
       },
