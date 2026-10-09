@@ -18,10 +18,12 @@ from watchdog.events import (
 )
 from watchdog.observers.polling import PollingObserver
 
+from amane.config import HotSettings, ScrapingConfig
 from amane.db.repository import Repository
 from amane.enums import LibraryAutomation
 from amane.events import EventBus
 from amane.library import LibraryScan
+from amane.parsing import ContentType
 from amane.scheduler.service import WatcherService
 from amane.scheduler.watcher import DEBOUNCE_SECONDS, FileWatcher, _Handler
 from amane.utils.path import path_is_under
@@ -435,6 +437,31 @@ class TestWatcherService:
 
         tasks = await repo.list_tasks()
         assert len(tasks) == 1
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_prefix_types_read_from_get_hot_per_call(
+        self, repo: Repository, bus: EventBus, tmp_path: Path
+    ) -> None:
+        """前缀约定每次事件现取热配置: 改配置后不必重建 WatcherService 即生效."""
+        hot = HotSettings()
+        service = WatcherService(repo, bus, use_polling=True, get_hot=lambda: hot)
+        lib = await repo.create_library(name="t", path=str(tmp_path))
+        assert lib.id is not None
+
+        before = tmp_path / "MIDV-123.mp4"
+        before.write_bytes(b"\x00" * 100)
+        await service._on_file_found(before, lib.id)
+        created = await repo.get_media_file_by_path(str(before))
+        assert created is not None
+        assert created.content_type is ContentType.CENSORED
+
+        hot = HotSettings(scraping=ScrapingConfig(prefix_content_types={"MIDV-": ContentType.AMATEUR}))
+        after = tmp_path / "MIDV-456.mp4"
+        after.write_bytes(b"\x00" * 100)
+        await service._on_file_found(after, lib.id)
+        created = await repo.get_media_file_by_path(str(after))
+        assert created is not None
+        assert created.content_type is ContentType.AMATEUR
 
     @pytest.mark.asyncio(loop_scope="function")
     async def test_on_file_found_watch_only_does_not_scrape(self, service, repo: Repository, tmp_path: Path) -> None:
