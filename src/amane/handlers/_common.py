@@ -10,8 +10,11 @@ from ..utils.oshash import compute_oshash
 from ..utils.threads import existing_disk_path, in_thread
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from ..db.models import MediaFile
     from ..db.repository import Repository
+    from ..parsing import ContentType
 
 
 class LibraryTaskLocks:
@@ -51,9 +54,17 @@ def scan_library(scan_dir: Path, *, recursive: bool, scan: LibraryScan) -> list[
     return hits
 
 
-async def register_media_file(repo: Repository, library_id: int, path: Path) -> MediaFile:
-    """注册不读文件内容; oshash 留给刮削按需计算."""
-    return await repo.create_media_file(library_id=library_id, path=str(path))
+async def register_media_file(
+    repo: Repository,
+    library_id: int,
+    path: Path,
+    prefix_types: Mapping[str, ContentType] | None = None,
+) -> MediaFile:
+    """注册不读文件内容; oshash 留给刮削按需计算.
+
+    前缀约定由调用方现取热配置传入.
+    """
+    return await repo.create_media_file(library_id=library_id, path=str(path), prefix_types=prefix_types)
 
 
 async def ensure_oshash(repo: Repository, media: MediaFile) -> str | None:

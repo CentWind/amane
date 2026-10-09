@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Query, Response
 from ...db.models import MediaFileStatus, MediaSortField, SortOrder
 from ...parsing import DEFINITION_VALUES, ContentType, Mosaic
 from ...utils.model import to_resp
-from ..deps import RepoDep
+from ..deps import RepoDep, RuntimeDep
 from ..models import MediaFileResponse, MediaFileUpdateRequest, MediaListResponse
 
 if TYPE_CHECKING:
@@ -81,11 +81,16 @@ async def get_media(media_id: int, repo: RepoDep) -> MediaFileResponse:
 
 
 @router.patch("/{media_id}")
-async def update_media(media_id: int, req: MediaFileUpdateRequest, repo: RepoDep) -> MediaFileResponse:
+async def update_media(
+    media_id: int, req: MediaFileUpdateRequest, repo: RepoDep, runtime: RuntimeDep
+) -> MediaFileResponse:
     updates = cast("MediaFileUpdates", req.model_dump(exclude_unset=True))
     if not updates:
         raise HTTPException(status_code=422, detail="没有需要修改的字段")
-    media = await repo.update_media_file(media_id, **updates)
+    # 相位列是 path 的投影, 只有本次改 path 才重算; 其余字段不动相位列, 传与不传等价.
+    # 约定现取热配置: 仓储不随热重载重建, 不能持有配置引用.
+    prefix_types = runtime.config.hot.scraping.prefix_content_types if "path" in updates else None
+    media = await repo.update_media_file(media_id, prefix_types=prefix_types, **updates)
     if media is None:
         raise HTTPException(status_code=404, detail="媒体文件不存在")
     logger.info("media file updated", media_id=media_id, fields=list(updates.keys()))

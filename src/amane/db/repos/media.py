@@ -1,4 +1,4 @@
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import NamedTuple, Unpack
 
 from sqlalchemy import func, or_
@@ -16,9 +16,12 @@ from .base import RepositoryMixinBase
 SQL_IN_CHUNK_SIZE = 500
 
 
-def _apply_path_phase(media: MediaFile) -> None:
-    """path 是真值, 相位列是投影; 创建与改 path 时必须回填."""
-    phase = file_phase_from_path(media.path)
+def _apply_path_phase(media: MediaFile, prefix_types: Mapping[str, ContentType] | None = None) -> None:
+    """path 是真值, 相位列是投影; 创建与改 path 时必须回填.
+
+    前缀约定由调用方现取热配置传入: ``Repository`` 不随热重载重建, 不能持有配置引用.
+    """
+    phase = file_phase_from_path(media.path, prefix_types=prefix_types)
     media.content_type = phase["content_type"]
     media.mosaic = phase["mosaic"]
     media.has_subtitle = phase["has_subtitle"]
@@ -41,13 +44,19 @@ class MetadataFilesSummary(NamedTuple):
 
 
 class MediaRepoMixin(RepositoryMixinBase):
-    async def create_media_file(self, library_id: int, **updates: Unpack[MediaFileUpdates]) -> MediaFile:
+    async def create_media_file(
+        self,
+        library_id: int,
+        *,
+        prefix_types: Mapping[str, ContentType] | None = None,
+        **updates: Unpack[MediaFileUpdates],
+    ) -> MediaFile:
         path = updates.get("path")
         if path is not None:
             updates["path"] = nfc_path(path)
         async with self._session() as session:
             media = MediaFile(library_id=library_id, **updates)
-            _apply_path_phase(media)
+            _apply_path_phase(media, prefix_types)
             session.add(media)
             await session.commit()
             await session.refresh(media)
@@ -186,7 +195,13 @@ class MediaRepoMixin(RepositoryMixinBase):
             result = await session.exec(stmt)
             return result.one() or 0
 
-    async def update_media_file(self, media_id: int, **updates: Unpack[MediaFileUpdates]) -> MediaFile | None:
+    async def update_media_file(
+        self,
+        media_id: int,
+        *,
+        prefix_types: Mapping[str, ContentType] | None = None,
+        **updates: Unpack[MediaFileUpdates],
+    ) -> MediaFile | None:
         async with self._session() as session:
             media = await session.get(MediaFile, media_id)
             if media is None:
@@ -194,7 +209,7 @@ class MediaRepoMixin(RepositoryMixinBase):
             # 显式赋值, 禁止 setattr; 字段集由 MediaFileUpdates 与 MediaFile 静态对齐.
             if "path" in updates:
                 media.path = nfc_path(updates["path"])
-                _apply_path_phase(media)
+                _apply_path_phase(media, prefix_types)
             if "number" in updates:
                 media.number = updates["number"]
             if "oshash" in updates:

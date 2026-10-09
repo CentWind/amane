@@ -1,5 +1,5 @@
 import shutil
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -32,7 +32,7 @@ from ..organize import (
     video_dest,
 )
 from ..organize.link import create_video_link
-from ..parsing import FileInfo, parse_file_info
+from ..parsing import ContentType, FileInfo, parse_file_info
 from ..utils.path import existing_disk_path as existing_disk_path_sync
 from ..utils.path import is_descendant, nfc_path, path_is_under
 from ..utils.threads import existing_disk_path, in_thread, path_is_dir
@@ -247,10 +247,15 @@ async def commit_organized_media_file(
     media: MediaFile,
     placed: Path,
     library_root: Path,
+    *,
+    prefix_types: Mapping[str, ContentType] | None = None,
 ) -> None:
     """整理后的路径仍在本库内才改 path; 已离开本库且源路径不在磁盘上则删行.
 
     目标路径已被另一行占用时删本行; 占用行缺少刮削字段则从本行补上.
+
+    改 path 会按 ``prefix_types`` 重投影相位列, 须由持有热配置的调用方现取传入,
+    否则用户的前缀约定在整理落盘后被默认推断覆盖.
     """
     if media.id is None:
         return
@@ -261,7 +266,7 @@ async def commit_organized_media_file(
 
     occupant = await repo.get_media_file_by_path(str(placed))
     if occupant is None or occupant.id == media.id:
-        await repo.update_media_file(media.id, path=str(placed))
+        await repo.update_media_file(media.id, path=str(placed), prefix_types=prefix_types)
         return
     if occupant.id is None:
         return
@@ -274,6 +279,7 @@ async def commit_organized_media_file(
     if occupant.number is None and media.number is not None:
         occupant_updates["number"] = media.number
     if occupant_updates:
+        # 占用行的 path 已经是 placed, 这里不回写 path, 相位列不重算, 因此不需要前缀约定.
         await repo.update_media_file(occupant.id, **occupant_updates)
     await repo.delete_media_file(media.id)
 
@@ -540,7 +546,13 @@ class OrganizeHandler(TaskHandler[OrganizePayload, OrganizeResult]):
                     continue
 
                 if fop_result.dest and media_file.id is not None:
-                    await commit_organized_media_file(self._repo, media_file, fop_result.dest, library_root)
+                    await commit_organized_media_file(
+                        self._repo,
+                        media_file,
+                        fop_result.dest,
+                        library_root,
+                        prefix_types=self._config.scraping.prefix_content_types,
+                    )
                 match fop_result.outcome:
                     case PlaceOutcome.PLACED:
                         organized += 1
