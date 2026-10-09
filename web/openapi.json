@@ -8784,6 +8784,7 @@
               "site_config": {
                 "airav": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8791,6 +8792,7 @@
                 },
                 "avbase": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8798,6 +8800,7 @@
                 },
                 "avsox": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8805,6 +8808,7 @@
                 },
                 "dahlia": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8812,6 +8816,7 @@
                 },
                 "dmm": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8819,6 +8824,7 @@
                 },
                 "faleno": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8826,6 +8832,7 @@
                 },
                 "fc2": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8833,6 +8840,7 @@
                 },
                 "fc2club": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8840,6 +8848,7 @@
                 },
                 "fc2ppvdb": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8847,6 +8856,7 @@
                 },
                 "freejavbt": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8854,6 +8864,7 @@
                 },
                 "getchu": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8861,6 +8872,7 @@
                 },
                 "gfriends": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8868,6 +8880,7 @@
                 },
                 "giga": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8875,6 +8888,7 @@
                 },
                 "iqqtv": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8882,6 +8896,7 @@
                 },
                 "jav321": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8889,6 +8904,7 @@
                 },
                 "javbus": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8896,6 +8912,7 @@
                 },
                 "javdb": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8903,6 +8920,7 @@
                 },
                 "javlibrary": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8910,6 +8928,7 @@
                 },
                 "kin8": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8917,6 +8936,7 @@
                 },
                 "mgstage": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8924,6 +8944,7 @@
                 },
                 "minnano": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8931,6 +8952,7 @@
                 },
                 "official": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8938,6 +8960,7 @@
                 },
                 "prestige": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8945,6 +8968,7 @@
                 },
                 "r18dev": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8952,6 +8976,7 @@
                 },
                 "theporndb": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8959,6 +8984,7 @@
                 },
                 "wikipedia": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -8966,6 +8992,7 @@
                 },
                 "xcity": {
                   "cookie": {},
+                  "number_aliases": {},
                   "official_routes": {},
                   "rate_limit": 2.0,
                   "use_browser": "auto",
@@ -13577,6 +13604,16 @@
             "title": "Official Routes",
             "x-visible-keys": [
               "official"
+            ]
+          },
+          "number_aliases": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Number Aliases",
+            "x-visible-keys": [
+              "javdb"
             ]
           },
           "rate_limit": {

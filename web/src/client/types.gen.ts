@@ -3970,6 +3970,12 @@ export type SiteConfig = {
         [key: string]: Manufacturer;
     };
     /**
+     * Number Aliases
+     */
+    number_aliases?: {
+        [key: string]: string;
+    };
+    /**
      * Rate Limit
      */
     rate_limit?: number | null;

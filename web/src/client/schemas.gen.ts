@@ -2781,6 +2781,7 @@ export const HotSettingsSchema = {
                 site_config: {
                     airav: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2788,6 +2789,7 @@ export const HotSettingsSchema = {
                     },
                     avbase: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2795,6 +2797,7 @@ export const HotSettingsSchema = {
                     },
                     avsox: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2802,6 +2805,7 @@ export const HotSettingsSchema = {
                     },
                     dahlia: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2809,6 +2813,7 @@ export const HotSettingsSchema = {
                     },
                     dmm: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2816,6 +2821,7 @@ export const HotSettingsSchema = {
                     },
                     faleno: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2823,6 +2829,7 @@ export const HotSettingsSchema = {
                     },
                     fc2: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2830,6 +2837,7 @@ export const HotSettingsSchema = {
                     },
                     fc2club: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2837,6 +2845,7 @@ export const HotSettingsSchema = {
                     },
                     fc2ppvdb: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2844,6 +2853,7 @@ export const HotSettingsSchema = {
                     },
                     freejavbt: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2851,6 +2861,7 @@ export const HotSettingsSchema = {
                     },
                     getchu: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2858,6 +2869,7 @@ export const HotSettingsSchema = {
                     },
                     gfriends: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2865,6 +2877,7 @@ export const HotSettingsSchema = {
                     },
                     giga: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2872,6 +2885,7 @@ export const HotSettingsSchema = {
                     },
                     iqqtv: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2879,6 +2893,7 @@ export const HotSettingsSchema = {
                     },
                     jav321: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2886,6 +2901,7 @@ export const HotSettingsSchema = {
                     },
                     javbus: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2893,6 +2909,7 @@ export const HotSettingsSchema = {
                     },
                     javdb: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2900,6 +2917,7 @@ export const HotSettingsSchema = {
                     },
                     javlibrary: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2907,6 +2925,7 @@ export const HotSettingsSchema = {
                     },
                     kin8: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2914,6 +2933,7 @@ export const HotSettingsSchema = {
                     },
                     mgstage: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2921,6 +2941,7 @@ export const HotSettingsSchema = {
                     },
                     minnano: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2928,6 +2949,7 @@ export const HotSettingsSchema = {
                     },
                     official: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2935,6 +2957,7 @@ export const HotSettingsSchema = {
                     },
                     prestige: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2942,6 +2965,7 @@ export const HotSettingsSchema = {
                     },
                     r18dev: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2949,6 +2973,7 @@ export const HotSettingsSchema = {
                     },
                     theporndb: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2956,6 +2981,7 @@ export const HotSettingsSchema = {
                     },
                     wikipedia: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -2963,6 +2989,7 @@ export const HotSettingsSchema = {
                     },
                     xcity: {
                         cookie: {},
+                        number_aliases: {},
                         official_routes: {},
                         rate_limit: 2,
                         use_browser: 'auto',
@@ -7666,6 +7693,16 @@ export const SiteConfigSchema = {
             title: 'Official Routes',
             'x-visible-keys': [
                 'official'
+            ]
+        },
+        number_aliases: {
+            additionalProperties: {
+                type: 'string'
+            },
+            type: 'object',
+            title: 'Number Aliases',
+            'x-visible-keys': [
+                'javdb'
             ]
         },
         rate_limit: {
