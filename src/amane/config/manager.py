@@ -277,6 +277,9 @@ class ScrapingConfig(BaseModel):
 
     jpeg_quality: int = Field(default=95, ge=50, le=100, json_schema_extra={"x-hidden": True})
 
+    prefix_content_types: dict[str, ContentType] = Field(default_factory=dict)
+    """番号前缀→内容类型. 命中时覆盖解析推断的类型; 前缀不区分大小写, 多前缀命中取最长."""
+
     content_routes: dict[ContentType, list[str]] = Field(
         default_factory=lambda: {ct: [str(site) for site in _DEFAULT_CONTENT_ROUTES.get(ct, [])] for ct in ContentType},
         json_schema_extra=kv(
