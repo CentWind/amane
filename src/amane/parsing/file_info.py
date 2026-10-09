@@ -12,7 +12,7 @@ from __future__ import annotations
 import contextlib
 import re
 import unicodedata
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -217,13 +217,29 @@ _DEFINITION_MARKERS: tuple[tuple[str, re.Pattern[str]], ...] = (
 DEFINITION_VALUES: tuple[str, ...] = tuple(dict.fromkeys(value for value, _ in _DEFINITION_MARKERS))
 
 
+def _match_prefix_type(number: str, prefix_types: Mapping[str, ContentType]) -> ContentType | None:
+    """番号命中用户配置的前缀则给出该类型. 前缀不区分大小写, 多前缀命中取最长."""
+    upper = number.upper()
+    matched: str | None = None
+    for prefix in prefix_types:
+        if not prefix or not upper.startswith(prefix.upper()):
+            continue
+        if matched is None or len(prefix) > len(matched):
+            matched = prefix
+    return None if matched is None else prefix_types[matched]
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
 
 def parse_file_info(
-    path: str | Path | None = None, *, text: str | None = None, escape_strings: list[str] | None = None
+    path: str | Path | None = None,
+    *,
+    text: str | None = None,
+    escape_strings: list[str] | None = None,
+    prefix_types: Mapping[str, ContentType] | None = None,
 ) -> FileInfo:
     """有路径则解析路径, 否则解析 ``text``. 两者至少要有一个.
 
@@ -231,6 +247,7 @@ def parse_file_info(
     目录关键词 (欧美 / 里番 / getchu) 可覆盖类型. 分集还可认直接父目录 CD/PART.
     文本: 只执行番号规则, 未命中 ``number is None`` (不能把原文当番号). 文件相位只依据该字符串
     (``Path(text).stem``, 与中字分集检测一致), 不依据目录.
+    ``prefix_types`` 是番号前缀→类型的用户约定, 命中时覆盖解析结果 (优先于目录关键词).
     """
     if path is None and text is None:
         raise ValueError("path or text required")
@@ -255,6 +272,10 @@ def parse_file_info(
         basename = Path(text).stem.upper()
         cd = _detect_cd(basename)
         mosaic = _detect_mosaic(basename)
+    if prefix_types and number is not None:
+        forced = _match_prefix_type(number, prefix_types)
+        if forced is not None:
+            content_type = forced
     return FileInfo(
         number=number,
         content_type=content_type,
@@ -271,9 +292,11 @@ def extract_number(text: str, escape_strings: list[str] | None = None) -> str | 
     return parse_file_info(text=text, escape_strings=escape_strings).number
 
 
-def infer_content_type(number: str, file_path: str | None = None) -> ContentType:
+def infer_content_type(
+    number: str, file_path: str | None = None, *, prefix_types: Mapping[str, ContentType] | None = None
+) -> ContentType:
     """有挂载文件按路径, 否则按番号; 未命中已知形态则欧美."""
-    return parse_file_info(file_path, text=number).content_type
+    return parse_file_info(file_path, text=number, prefix_types=prefix_types).content_type
 
 
 def detect_cd(filename: str | Path) -> int | None:
@@ -302,8 +325,8 @@ def is_amateur(number: str) -> bool:
     return infer_content_type(number) == ContentType.AMATEUR
 
 
-def file_phase_from_path(path: str | Path) -> FilePhase:
-    info = parse_file_info(path)
+def file_phase_from_path(path: str | Path, prefix_types: Mapping[str, ContentType] | None = None) -> FilePhase:
+    info = parse_file_info(path, prefix_types=prefix_types)
     return FilePhase(
         content_type=info.content_type,
         mosaic=info.mosaic,
