@@ -14,8 +14,13 @@ from amane.db.models import Task, TaskStatus, TaskType
 from amane.enums import SiteName
 from amane.net import reset_skip_http_body, set_skip_http_body
 from amane.observability.export import build_record_zip
-from amane.observability.models import SECRETS_HOT_FILENAME, CaptureReason, SiteOutcomeKind
-from amane.observability.recorder import Recorder, task_dir_for
+from amane.observability.models import (
+    OUTCOME_DETAIL_LIMIT,
+    SECRETS_HOT_FILENAME,
+    CaptureReason,
+    SiteOutcomeKind,
+)
+from amane.observability.recorder import Recorder, _LogOnly, task_dir_for
 
 
 @pytest.fixture
@@ -229,3 +234,60 @@ def test_recorder_begin_discards_stale_summary(tmp_path: Path):
     rec = Recorder.begin(tmp_path, leftover, HotSettings())
     rec.close()
     assert not (root / "summary.json").is_file()
+
+
+@pytest.mark.parametrize(
+    ("queried", "recorded", "expected"),
+    [
+        # 按查询顺序, 未查询的站点不出现.
+        (["javdb", "dmm"], ["dmm", "javdb"], ["javdb", "dmm"]),
+        (["javdb"], ["javdb", "dmm"], ["javdb"]),
+        (["javdb", "dmm"], ["javdb"], ["javdb"]),
+        ([], ["javdb"], []),
+        (["javdb"], [], []),
+    ],
+)
+def test_site_outcomes_follows_queried_order(
+    tmp_path: Path, task: Task, queried: list[str], recorded: list[str], expected: list[str]
+):
+    rec = Recorder.begin(tmp_path, task, HotSettings())
+    rec.update_summary(sites_queried=queried)
+    for site in recorded:
+        rec.record_site_outcome(site=site, outcome=SiteOutcomeKind.FAILED, reason=FailureReason.NOT_FOUND)
+    assert [record.site for record in rec.site_outcomes()] == expected
+
+
+def test_site_outcomes_truncates_detail(tmp_path: Path, task: Task):
+    """任务结果里的 detail 截断; 记录中仍是完整文本."""
+    rec = Recorder.begin(tmp_path, task, HotSettings())
+    long_detail = "x" * (OUTCOME_DETAIL_LIMIT + 50)
+    rec.update_summary(sites_queried=["javdb", "dmm"])
+    rec.record_site_outcome(site="javdb", outcome=SiteOutcomeKind.FAILED, detail=long_detail)
+    rec.record_site_outcome(site="dmm", outcome=SiteOutcomeKind.FAILED, detail="x" * OUTCOME_DETAIL_LIMIT)
+
+    truncated = rec.site_outcomes()[0]
+    assert truncated.detail == "x" * OUTCOME_DETAIL_LIMIT
+    assert truncated.detail_truncated is True
+    assert rec.summary.outcomes["javdb"].detail == long_detail
+    assert rec.summary.outcomes["javdb"].detail_truncated is False
+    assert rec.site_outcomes()[1].detail_truncated is False  # 恰好等于上限不算截断
+
+
+def test_site_outcomes_include_unqueried(tmp_path: Path, task: Task):
+    """抓取中崩掉时站点已上报、调度顺序还没写: 补交要把它们带上, 排在已查询站点之后."""
+    rec = Recorder.begin(tmp_path, task, HotSettings())
+    rec.update_summary(eligible_sites=["dmm", "javdb"])
+    rec.record_site_outcome(site="javdb", outcome=SiteOutcomeKind.FAILED, reason=FailureReason.NOT_FOUND)
+    rec.record_site_outcome(site="dmm", outcome=SiteOutcomeKind.OK)
+
+    assert rec.site_outcomes() == []
+    assert [row.site for row in rec.site_outcomes(include_unqueried=True)] == ["javdb", "dmm"]
+
+    rec.update_summary(sites_queried=["dmm"])
+    assert [row.site for row in rec.site_outcomes()] == ["dmm"]
+    assert [row.site for row in rec.site_outcomes(include_unqueried=True)] == ["dmm", "javdb"]
+
+
+def test_site_outcomes_without_recorder_is_empty():
+    """无 begin 时 (回放等) 的空壳没有站点结果."""
+    assert _LogOnly(structlog.get_logger()).site_outcomes() == []

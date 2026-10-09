@@ -50,6 +50,19 @@ class ActorScrapeHandler(TaskHandler[ActorScrapePayload, ActorScrapeResult]):
         self._resource_store = resource_store
         self._web_client = web_client
 
+    def failure_result(self, payload: ActorScrapePayload) -> ActorScrapeResult | None:
+        """抓取之后崩掉时, 站点明细仍要能看到."""
+        outcomes = current().site_outcomes(include_unqueried=True)
+        if not outcomes:
+            return None
+        return ActorScrapeResult(
+            actor_id=payload.actor_id,
+            field_sources={},
+            failed_sites=[row.site for row in outcomes if row.outcome is SiteOutcomeKind.FAILED],
+            image_count=0,
+            outcomes=outcomes,
+        )
+
     async def handle(self, payload: ActorScrapePayload) -> TaskResult[ActorScrapeResult]:
         bind_contextvars(actor_id=payload.actor_id)
         rec = current()
@@ -171,7 +184,17 @@ class ActorScrapeHandler(TaskHandler[ActorScrapePayload, ActorScrapeResult]):
         # 别名行整表替换为「既有行 + 站点名」并集 (去重/去展示名在行写入层).
         saved = await self._repo.save_actor(actor, aliases=[*existing_aliases, *merged.aliases])
         if saved is None:
-            return TaskResult(success=False, error=f"保存演员 {payload.actor_id} 失败")
+            return TaskResult(
+                success=False,
+                error=f"保存演员 {payload.actor_id} 失败",
+                result=ActorScrapeResult(
+                    actor_id=payload.actor_id,
+                    field_sources=dict(merged.field_sources),
+                    failed_sites=failed_sites,
+                    image_count=len(merged.image_urls),
+                    outcomes=current().site_outcomes(),
+                ),
+            )
         await self.report_progress(progress_total, progress_total, "saved")
 
         rec.info(
@@ -188,6 +211,7 @@ class ActorScrapeHandler(TaskHandler[ActorScrapePayload, ActorScrapeResult]):
                 field_sources=dict(merged.field_sources),
                 failed_sites=failed_sites,
                 image_count=len(merged.image_urls),
+                outcomes=current().site_outcomes(),
             ),
         )
 

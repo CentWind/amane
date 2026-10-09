@@ -58,6 +58,8 @@ class SiteOutcomeRecord(BaseModel):
     """reason=http_error 时必有."""
     detail: str | None = None
     """展示用, 不解析."""
+    detail_truncated: bool = False
+    """结果里的 detail 是否被截断; 记录文件里始终是完整文本."""
 
 
 class OrganizeConflictReason(StrEnum):
@@ -75,6 +77,10 @@ class OrganizeConflict(BaseModel):
     path: str
     target: str
     reason: OrganizeConflictReason
+
+
+OUTCOME_DETAIL_LIMIT = 200
+"""任务结果里站点明细 `detail` 的截断长度; 完整文本只留在任务记录中."""
 
 
 class TaskSummary(BaseModel):

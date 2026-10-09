@@ -18,6 +18,7 @@ from ..net.errors import FailureReason
 from ..net.recording import bind_http_recorder_lookup, skip_http_body
 from ..version import get_version
 from .models import (
+    OUTCOME_DETAIL_LIMIT,
     RECORD_VERSION,
     SECRETS_HOT_FILENAME,
     CaptureReason,
@@ -117,6 +118,9 @@ class _LogOnly:
         detail: str | None = None,
     ) -> None:
         return None
+
+    def site_outcomes(self, *, include_unqueried: bool = False) -> list[SiteOutcomeRecord]:
+        return []
 
     def note_cache_hit(self, cache_key: str) -> None:
         return None
@@ -261,6 +265,26 @@ class Recorder:
                 }
             )
         self.summary = self.summary.model_copy(update={"outcomes": {**self.summary.outcomes, site: record}})
+
+    def site_outcomes(self, *, include_unqueried: bool = False) -> list[SiteOutcomeRecord]:
+        """本次任务已上报的站点结果, 按查询顺序; `detail` 截断后随任务结果返回.
+
+        `include_unqueried` 供失败 / 取消时补交: 抓取中崩掉时站点已上报, 但调度顺序还没写进
+        summary, 这些站点按完成顺序排在已查询站点之后.
+        """
+        sites = list(self.summary.sites_queried)
+        if include_unqueried:
+            sites += [site for site in self.summary.outcomes if site not in self.summary.sites_queried]
+        out: list[SiteOutcomeRecord] = []
+        for site in sites:
+            record = self.summary.outcomes.get(site)
+            if record is None:
+                continue
+            detail = record.detail
+            if detail is not None and len(detail) > OUTCOME_DETAIL_LIMIT:
+                record = record.model_copy(update={"detail": detail[:OUTCOME_DETAIL_LIMIT], "detail_truncated": True})
+            out.append(record)
+        return out
 
     def note_cache_hit(self, cache_key: str) -> None:
         self.record_site_outcome(site=cache_key, outcome=SiteOutcomeKind.CACHE_HIT)

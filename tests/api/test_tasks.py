@@ -2,12 +2,15 @@
 
 import asyncio
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, get_args
 
 import pytest
+from pydantic import BaseModel
 
+from amane.api.models.tasks import TaskResultPayload
 from amane.db.models import TaskType
 from amane.enums import DownloadableResource
+from amane.handlers import models as handler_models
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -251,48 +254,203 @@ class TestTaskWorker:
         assert app.state.runtime.worker.is_paused is False
 
 
-class TestTaskReport:
-    """GET /tasks/{id}/report - 读 log 目录摘要 + 终态 result."""
+class TestTaskResult:
+    """GET /tasks/{id}: 结果按任务类型判别; 列表与子任务不带重字段."""
 
     @pytest.mark.asyncio(loop_scope="function")
-    async def test_report_http(self, app: FastAPI, client: AsyncClient, repo: Repository, stop_worker: None):
-        assert (await client.get("tasks/9999/report")).status_code == 404
-        queued = await repo.create_task(task_type=TaskType.SCRAPE, payload={"number": "SSIS-497"})
-        assert (await client.get(f"tasks/{queued.id}/report")).status_code == 409
+    async def test_detail_result_is_typed(self, client: AsyncClient, repo: Repository, stop_worker: None):
+        """结果按类型判别, 原样回读; 整张表在同一个 lifespan 内跑完."""
+        cases: list[tuple[TaskType, dict[str, object]]] = [
+            (
+                TaskType.SCRAPE,
+                {
+                    "type": "scrape",
+                    "metadata_id": 17,
+                    "field_sources": {"title": "dmm"},
+                    "failed_sites": ["javdb"],
+                    "outcomes": [
+                        {
+                            "site": "dmm",
+                            "outcome": "ok",
+                            "reason": None,
+                            "http_status": None,
+                            "detail": None,
+                            "detail_truncated": False,
+                        },
+                        {
+                            "site": "javdb",
+                            "outcome": "failed",
+                            "reason": "not_found",
+                            "http_status": 404,
+                            "detail": None,
+                            "detail_truncated": False,
+                        },
+                    ],
+                },
+            ),
+            (
+                TaskType.ORGANIZE,
+                {
+                    "type": "organize",
+                    "organized": 1,
+                    "skipped": 0,
+                    "conflicted": 1,
+                    "failed": 0,
+                    "pruned_dirs": 0,
+                    "conflicts": [
+                        {
+                            "path": "/lib/incoming/NSFS-039.mp4",
+                            "target": "/lib/Studio/NSFS-039/NSFS-039.mp4",
+                            "reason": "target_exists",
+                        }
+                    ],
+                },
+            ),
+            (
+                TaskType.SCRAPE,
+                {
+                    "type": "scrape",
+                    "metadata_id": None,
+                    "field_sources": {},
+                    "failed_sites": ["javdb"],
+                    "outcomes": [],
+                },
+            ),
+            (TaskType.REFRESH, {"type": "refresh", "added": 2, "removed": 0, "scrape": 1}),
+            (
+                TaskType.ACTOR_SCRAPE,
+                {
+                    "type": "actor_scrape",
+                    "actor_id": 9,
+                    "field_sources": {},
+                    "failed_sites": [],
+                    "image_count": 1,
+                    "outcomes": [],
+                },
+            ),
+        ]
 
-        task = await repo.create_task(task_type=TaskType.SCRAPE, payload={"number": "jur-837"})
+        for task_type, result in cases:
+            task = await repo.create_task(task_type=task_type, payload={})
+            assert task.id is not None
+            await repo.complete_task(task.id, result=result)
+
+            body = (await client.get(f"tasks/{task.id}")).json()
+            assert body["result"] == result
+            assert body["result"]["type"] == task_type
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_detail_result_unreadable_is_empty(self, client: AsyncClient, repo: Repository, stop_worker: None):
+        """旧行与坏数据读不出来时置空, 端点不失败; 整张表在同一个 lifespan 内跑完."""
+        stored_cases: list[dict[str, object] | None] = [
+            None,
+            {"metadata_id": 17, "field_sources": {}, "failed_sites": []},
+            {
+                "type": "scrape",
+                "metadata_id": 17,
+                "field_sources": {},
+                "failed_sites": [],
+                "outcomes": [{"site": "dmm", "outcome": "nope"}],
+            },
+            {"type": "scrape", "metadata_id": 17},
+            {"type": "nope", "metadata_id": 17, "field_sources": {}, "failed_sites": []},
+        ]
+
+        for stored in stored_cases:
+            task = await repo.create_task(task_type=TaskType.SCRAPE, payload={"number": "SSIS-497"})
+            assert task.id is not None
+            await repo.complete_task(task.id, result=stored)
+
+            resp = await client.get(f"tasks/{task.id}")
+            assert resp.status_code == 200
+            assert resp.json()["result"] is None
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_failed_task_keeps_result_payload(self, client: AsyncClient, repo: Repository, stop_worker: None):
+        """失败任务的站点明细照样能读: 刮削失败时界面靠它解释原因."""
+        task = await repo.create_task(task_type=TaskType.SCRAPE, payload={"number": "SSIS-497"})
         assert task.id is not None
-        await repo.fail_task(task.id, error="No metadata found for jur-837")
-        log_dir = app.state.runtime.config.cold.log_dir
-        root = log_dir / "tasks" / f"task-{task.id}"
-        root.mkdir(parents=True)
-        (root / "summary.json").write_text(
-            '{"eligible_sites":["dmm","javdb"],"sites_queried":["dmm","javdb"],"outcomes":{'
-            '"dmm":{"site":"dmm","outcome":"failed","reason":"no_usable_metadata"},'
-            '"javdb":{"site":"javdb","outcome":"failed","reason":"http_error","http_status":403,"detail":"HTTP 403"}}}',
-            encoding="utf-8",
+        await repo.claim_next_task()
+        await repo.fail_task(
+            task.id,
+            error="未找到 SSIS-497 的元数据",
+            result={
+                "type": "scrape",
+                "metadata_id": None,
+                "field_sources": {},
+                "failed_sites": ["javdb"],
+                "outcomes": [
+                    {
+                        "site": "javdb",
+                        "outcome": "failed",
+                        "reason": "not_found",
+                        "http_status": 404,
+                        "detail": None,
+                        "detail_truncated": False,
+                    }
+                ],
+            },
         )
-        resp = await client.get(f"tasks/{task.id}/report")
-        assert resp.status_code == 200
-        body = resp.json()
-        assert body["headline"] == "No metadata found for jur-837"
-        by_site = {o["site"]: o for o in body["outcomes"]}
-        assert by_site["javdb"]["http_status"] == 403
-        assert by_site["dmm"]["reason"] == "no_usable_metadata"
 
-        done = await repo.create_task(task_type=TaskType.SCRAPE, payload={"number": "SSIS-001"})
-        assert done.id is not None
-        await repo.complete_task(done.id, result={"metadata_id": 17, "field_sources": {}, "failed_sites": []})
-        done_body = (await client.get(f"tasks/{done.id}/report")).json()
-        assert done_body["metadata_id"] == 17
-        assert done_body["actor_id"] is None
+        body = (await client.get(f"tasks/{task.id}")).json()
+        assert body["status"] == "failed"
+        assert body["error"] == "未找到 SSIS-497 的元数据"
+        assert body["result"]["type"] == "scrape"
+        assert [row["site"] for row in body["result"]["outcomes"]] == ["javdb"]
 
-        actor = await repo.create_task(task_type=TaskType.ACTOR_SCRAPE, payload={"actor_id": 8})
-        assert actor.id is not None
-        await repo.fail_task(actor.id, error="Actor 8 not found")
-        actor_body = (await client.get(f"tasks/{actor.id}/report")).json()
-        assert actor_body["actor_id"] == 8
-        assert actor_body["headline"] == "Actor 8 not found"
+    def test_result_union_covers_every_task_type(self):
+        """判别联合与结果模型必须覆盖全部任务类型: 漏一个, 该类型的详情会静默置空."""
+        members = get_args(get_args(TaskResultPayload)[0])
+        assert members, "联合成员为空"
+        labels = {get_args(member.model_fields["type"].annotation)[0] for member in members}
+        declared = {
+            get_args(obj.model_fields["type"].annotation)[0]
+            for obj in vars(handler_models).values()
+            if isinstance(obj, type) and issubclass(obj, BaseModel) and obj.__name__.endswith("Result")
+        }
+
+        assert declared == set(TaskType)
+        assert labels == declared
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_detail_result_type_mismatch_is_empty(self, client: AsyncClient, repo: Repository, stop_worker: None):
+        """结果成员的类型与任务类型不一致时置空."""
+        task = await repo.create_task(task_type=TaskType.ORGANIZE, payload={"library_id": 1})
+        assert task.id is not None
+        await repo.complete_task(task.id, result={"type": "refresh", "added": 1, "removed": 0, "scrape": 0})
+
+        body = (await client.get(f"tasks/{task.id}")).json()
+        assert body["result"] is None
+
+    @pytest.mark.asyncio(loop_scope="function")
+    async def test_list_omits_payload_and_result(self, client: AsyncClient, repo: Repository, stop_worker: None):
+        """列表不带 payload 与 result, 展开时再取详情."""
+        task = await repo.create_task(task_type=TaskType.REFRESH, payload={"library_id": 3})
+        assert task.id is not None
+        await repo.complete_task(task.id, result={"type": "refresh", "added": 1, "removed": 0, "scrape": 0})
+
+        item = (await client.get("tasks")).json()["items"][0]
+        assert "payload" not in item
+        assert "result" not in item
+
+        detail = (await client.get(f"tasks/{task.id}")).json()
+        assert detail["payload"] == task.payload
+        assert detail["result"]["type"] == "refresh"
+
+        # 子任务列表同样只给精简形状.
+        parent = await repo.create_task(task_type=TaskType.REFRESH, payload={"library_id": 3})
+        assert parent.id is not None
+        claimed = await repo.claim_next_task()
+        assert claimed is not None and claimed.id == parent.id
+        await repo.complete_task_with_followups(
+            parent.id,
+            result={"type": "refresh", "added": 0, "removed": 0, "scrape": 0},
+            followups=[("scrape:1", TaskType.SCRAPE, {"number": "MIDV-123"}, 0)],
+        )
+
+        child = (await client.get(f"tasks/{parent.id}/children")).json()["items"][0]
+        assert "payload" not in child
+        assert "result" not in child
 
 
 class TestTaskChain:

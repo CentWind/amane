@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
 from starlette.status import HTTP_403_FORBIDDEN
 
 from ..db import Library, MediaFileStatus, Repository
+from ..db.models import TaskType
 from ..enums import DownloadableResource
-from ..observability.models import OrganizeConflict
+from ..observability.models import OrganizeConflict, SiteOutcomeRecord
 from ..parsing import ContentType, infer_content_type
 from ..utils.path import is_descendant, is_resolved_path, resolved_path
 
@@ -89,6 +90,7 @@ class RefreshPayload(LibraryScanBase):
 
 
 class RefreshResult(BaseModel):
+    type: Literal[TaskType.REFRESH] = TaskType.REFRESH
     added: int
     removed: int
     scrape: int
@@ -123,9 +125,13 @@ def build_feed_scrape_payload(feed: Feed, number: str) -> ScrapePayload:
 
 
 class ScrapeResult(BaseModel):
-    metadata_id: int
+    type: Literal[TaskType.SCRAPE] = TaskType.SCRAPE
+    metadata_id: int | None = None
+    """刮削失败时没有元数据行, 为 None."""
     field_sources: dict[str, str]
     failed_sites: list[str]
+    outcomes: list[SiteOutcomeRecord] = Field(default_factory=list)
+    """各来源的结果明细; 与记录里的 summary 同源."""
 
 
 # --- ORGANIZE ---
@@ -174,12 +180,14 @@ ORGANIZE_CONFLICT_LIMIT = 200
 
 
 class OrganizeResult(BaseModel):
+    type: Literal[TaskType.ORGANIZE] = TaskType.ORGANIZE
     organized: int
     skipped: int
-    conflicted: int = 0
+    conflicted: int
     failed: int
-    pruned_dirs: int = 0
-    conflicts: list[OrganizeConflict] = Field(default_factory=list)
+    pruned_dirs: int
+    conflicts: list[OrganizeConflict]
+    """未处理的条目, 最多 ORGANIZE_CONFLICT_LIMIT 条; 恒为 conflicted 条目的前缀, 差额只留在任务日志里."""
 
 
 # --- SCAN INVALID ---
@@ -190,6 +198,7 @@ class ScanInvalidPayload(LibraryScanBase):
 
 
 class ScanInvalidResult(BaseModel):
+    type: Literal[TaskType.SCAN_INVALID] = TaskType.SCAN_INVALID
     inventory_id: str
     entries: int
     dirs: int
@@ -224,6 +233,7 @@ class DeletePayload(BaseModel):
 
 
 class DeleteResult(BaseModel):
+    type: Literal[TaskType.DELETE] = TaskType.DELETE
     deleted: int
     changed: int
     failed: int
@@ -252,6 +262,7 @@ class CleanupPayload(BaseModel):
 
 
 class CleanupResult(BaseModel):
+    type: Literal[TaskType.CLEANUP] = TaskType.CLEANUP
     files_removed: int
     resources_removed: int
 
@@ -269,6 +280,7 @@ class UpscalePayload(BaseModel):
 
 
 class UpscaleResult(BaseModel):
+    type: Literal[TaskType.UPSCALE] = TaskType.UPSCALE
     scanned: int
     upscaled: int
     skipped: int
@@ -284,6 +296,7 @@ class R18ImportPayload(BaseModel):
 
 
 class R18ImportResult(BaseModel):
+    type: Literal[TaskType.R18_IMPORT] = TaskType.R18_IMPORT
     imported: bool
     """False 表示远程未变化而跳过, 不是导入失败."""
     etag: str | None = None
@@ -302,10 +315,13 @@ class ActorScrapePayload(BaseModel):
 
 
 class ActorScrapeResult(BaseModel):
+    type: Literal[TaskType.ACTOR_SCRAPE] = TaskType.ACTOR_SCRAPE
     actor_id: int
     field_sources: dict[str, str]
     failed_sites: list[str]
     image_count: int
+    outcomes: list[SiteOutcomeRecord] = Field(default_factory=list)
+    """各来源的结果明细; 与记录里的 summary 同源."""
 
 
 # --- RESCRAPE ---
@@ -337,6 +353,7 @@ class RescrapePayload(BaseModel):
 
 
 class RescrapeResult(BaseModel):
+    type: Literal[TaskType.RESCRAPE] = TaskType.RESCRAPE
     submitted: int
     metadata: int = 0
     actors: int = 0

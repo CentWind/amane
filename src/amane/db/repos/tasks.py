@@ -225,22 +225,24 @@ class TasksRepoMixin(RepositoryMixinBase):
                 await session.refresh(child)
         return created
 
-    async def fail_task(self, task_id: int, error: str) -> None:
+    async def fail_task(self, task_id: int, error: str, result: dict[str, object] | None = None) -> None:
+        """失败也可带结果载荷: 刮削失败时站点明细仍要能展示; None 会清掉上一次运行的残留."""
         async with self._session() as session:
             task = await session.get(Task, task_id)
             if task is None:
                 return
             task.status = TaskStatus.FAILED
             task.error = error
+            task.result = result
             task.retries += 1
             task.finished_at = _utcnow()
             session.add(task)
             await session.commit()
 
-    async def fail_running_task(self, task_id: int, error: str) -> bool:
+    async def fail_running_task(self, task_id: int, error: str, result: dict[str, object] | None = None) -> bool:
         """仅当任务仍为 RUNNING 时标记失败; 返回是否命中.
 
-        取消回退与取消兜底使用: 已进入终态的任务不得被覆盖为 FAILED.
+        取消回退与取消兜底使用: 已进入终态的任务不得被覆盖为 FAILED. 取消同样落库载荷.
         """
         async with self._session() as session:
             task = await session.get(Task, task_id)
@@ -248,6 +250,7 @@ class TasksRepoMixin(RepositoryMixinBase):
                 return False
             task.status = TaskStatus.FAILED
             task.error = error
+            task.result = result
             task.retries += 1
             task.finished_at = _utcnow()
             session.add(task)

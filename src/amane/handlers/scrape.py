@@ -10,6 +10,7 @@ from ..db.models import TaskType
 from ..enums import ActorGender, MetadataField
 from ..media import materialize_images
 from ..observability import current
+from ..observability.models import SiteOutcomeKind
 from ..plugins.models import SourceDescriptor, SourceTrait
 from ._common import ensure_oshash, finalize_media_file
 from .models import ActorScrapePayload, CacheKind, ScrapePayload, ScrapeResult
@@ -127,7 +128,16 @@ class ScrapeHandler(TaskHandler[ScrapePayload, ScrapeResult]):
         # 标量可以全空: 只要有来源返回结果, 海报 / 评分 / external_id 仍可入库.
         if not result.raw:
             current().warning("no data found from any source", failed_sites=result.failed_sites)
-            return TaskResult(success=False, error=f"未找到 {payload.number} 的元数据")
+            # 失败也要能回答"为什么刮不到": 站点明细随失败结果落库.
+            return TaskResult(
+                success=False,
+                error=f"未找到 {payload.number} 的元数据",
+                result=ScrapeResult(
+                    field_sources=result.field_sources,
+                    failed_sites=list(result.failed_sites),
+                    outcomes=current().site_outcomes(),
+                ),
+            )
 
         # 获取结束: 进度分子对齐标量字段数, 其后为物化与持久化.
         await self.report_progress(len(SCALAR_FIELDS), progress_total, "fetch")
@@ -206,9 +216,23 @@ class ScrapeHandler(TaskHandler[ScrapePayload, ScrapeResult]):
         return TaskResult(
             success=True,
             result=ScrapeResult(
-                metadata_id=meta.id, field_sources=result.field_sources, failed_sites=result.failed_sites
+                metadata_id=meta.id,
+                field_sources=result.field_sources,
+                failed_sites=result.failed_sites,
+                outcomes=current().site_outcomes(),
             ),
             followups=actor_followups,
+        )
+
+    def failure_result(self, payload: ScrapePayload) -> ScrapeResult | None:
+        """抓取之后崩掉时, 站点明细仍要能回答"为什么刮不到"."""
+        outcomes = current().site_outcomes(include_unqueried=True)
+        if not outcomes:
+            return None
+        return ScrapeResult(
+            field_sources={},
+            failed_sites=[row.site for row in outcomes if row.outcome is SiteOutcomeKind.FAILED],
+            outcomes=outcomes,
         )
 
     async def _actor_scrape_followups(self, actor_names: list[str]) -> list[FollowupTask]:
