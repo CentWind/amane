@@ -56,6 +56,8 @@ CrawlerFactory (缓存实例)
 
 - 番号: 站内 ID 带 `-` 时, 入参 `HEYZO-3607` 与 `HEYZO3607` 都应能对上 (大小写, 短横线与空格不参与比对). 不允许把 `_` 改写为 `-`, 除非该站把两种当成同一部. 欧美日期号 (`Studio.YY.MM.DD`) 的年份 2 位与 4 位写法视为同一番号. 比对与归一用 `crawlers/parsing.py` 的 `fold_number` / `is_same_number` / `leading_token`.
 - 演员: 检索行或实体的名字 (含别名) 与查找名相等才算命中, 用 `normalize_name` / `fold_name` / `is_same_name`; 站内的注记括号, 拆名规则由各站自行剥离.
+- 站内形态与入参不同的来源由 `SiteConfig.number_aliases` (番号前缀→检索词前缀, 不区分大小写, 多前缀命中取最长) 在检索时还原: 替换结果作为该番号的**首个**检索词, 未命中再回退原番号. 别名展开出的检索词**同时是命中判据** — 用替换后的番号检索却与替换前的番号比对, 会把已命中的条目标成未命中. 替换只作用于该来源的检索, 不写回 `SearchQuery.number` 与 `Metadata.number`.
+- 路径解析会给 DMM 形态的素人番号补数字头 (`parsing/file_info.py`), 该形态只有 DMM 认; 形态不同的来源靠上一条的别名还原, 不允许在解析层按来源分支.
 - 确认不了的结果视为该来源无此番号 / 无此演员, 不允许回退首条. 站点特例见 [content-routes.md](content-routes.md).
 
 ## HTTP 层
