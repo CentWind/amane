@@ -9,7 +9,14 @@ from sqlmodel.sql.expression import SelectOfScalar
 from ...parsing import ContentType, FilePhase, FilePhaseSummary, Mosaic, file_phase_from_path, summarize_file_phases
 from ...utils.path import nfc_path
 from ..models import MediaFile, MediaFileStatus, MediaSortField, SortOrder
-from ..repo_types import _MEDIA_SORT_COLUMNS, MediaFileUpdates, _apply_media_phase_filters, _order_clause, _utcnow
+from ..repo_types import (
+    _MEDIA_SORT_COLUMNS,
+    MediaFileFields,
+    MediaFileUpdates,
+    _apply_media_phase_filters,
+    _order_clause,
+    _utcnow,
+)
 from .base import RepositoryMixinBase
 
 # SQLite 绑定变量上限. 500 给语句里其它占位留余量.
@@ -45,7 +52,7 @@ class MetadataFilesSummary(NamedTuple):
 
 
 class MediaRepoMixin(RepositoryMixinBase):
-    async def create_media_file(self, library_id: int, **updates: Unpack[MediaFileUpdates]) -> MediaFile:
+    async def create_media_file(self, library_id: int, **updates: Unpack[MediaFileFields]) -> MediaFile:
         path = updates.get("path")
         if path is not None:
             updates["path"] = nfc_path(path)
@@ -215,6 +222,8 @@ class MediaRepoMixin(RepositoryMixinBase):
                 media.metadata_id = updates["metadata_id"]
             if "has_external_subtitle" in updates:
                 media.has_external_subtitle = updates["has_external_subtitle"]
+            if "library_id" in updates:
+                media.library_id = updates["library_id"]
             media.updated_at = _utcnow()
             session.add(media)
             await session.commit()

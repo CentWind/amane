@@ -96,7 +96,7 @@ PATCH 三态: **省略键** = 不更新 (`exclude_unset`); **显式值** = 写�
 | `UserTag` 删除 | **级联删除**两张关联表的挂载行 | 应用层级联 (不依赖 FK pragma); 合并用户标签时源标签的挂载先迁入 target 再删实体 |
 | `Actor` 删除 / 合并 | 删除其标签挂载行; 合并时源演员的挂载并入 target | 应用层级联, 与别名行同处处理 |
 | `Resource` 清理 | CLEANUP 回收未引用 | 扫描全部 Metadata 媒体 URL 字段与 `Actor.image_urls`, 删不被引用的 Resource (文件 + 行). 非 LRU |
-| 文件 move / hardlink 后 | 路径仍在本库内则 ORGANIZE 更新 `MediaFile.path`; 已不在本库内且源路径不在磁盘上则删除该行 | 外部直接挪文件不触发更新, 由 watcher 检测. 见 [task-system.md](task-system.md) 落盘执行 |
+| 文件 move / hardlink 后 | 路径仍在源库内则 ORGANIZE 更新 `MediaFile.path`; 若落入其他受管媒体库则原子迁移 `library_id` 与 `path`; 若完全离开受管范围且源路径不在磁盘上则删除该行 | 外部直接挪文件不触发更新, 由 watcher 检测. 见 [task-system.md](task-system.md) 落盘执行 |
 
 ## Library 整理布局
 
