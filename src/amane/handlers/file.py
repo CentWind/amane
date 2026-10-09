@@ -248,23 +248,38 @@ async def commit_organized_media_file(
     placed: Path,
     library_root: Path,
 ) -> None:
-    """整理后的路径仍在本库内才改 path; 已离开本库且源路径不在磁盘上则删行.
+    """整理后的路径仍在本库内才改 path; 若落入其他受管媒体库则迁移归属与路径;
+    已离开受管范围且源路径不在磁盘上则删行.
 
     目标路径已被另一行占用时删本行; 占用行缺少刮削字段则从本行补上.
     """
     if media.id is None:
         return
     library = await repo.get_library(media.library_id)
+    target_library = library
+    target_library_id = media.library_id
     if not is_descendant(placed, library_root):
-        if await existing_disk_path(Path(media.path), follow_symlinks=False) is None:
-            await repo.delete_media_file(media.id)
-        return
+        target_lib = None
+        for lib in await repo.list_libraries():
+            if lib.id is not None and is_descendant(placed, Path(lib.path)):
+                target_lib = lib
+                break
+        if target_lib is not None:
+            target_library = target_lib
+            target_library_id = target_lib.id
+        else:
+            if await existing_disk_path(Path(media.path), follow_symlinks=False) is None:
+                await repo.delete_media_file(media.id)
+            return
 
     occupant = await repo.get_media_file_by_path(str(placed))
     if occupant is None or occupant.id == media.id:
-        updated = await repo.update_media_file(media.id, path=str(placed))
-        if updated is not None and library is not None:
-            await refresh_external_subtitle(repo, updated, library)
+        updates: MediaFileUpdates = {"path": str(placed)}
+        if target_library_id != media.library_id:
+            updates["library_id"] = target_library_id
+        updated = await repo.update_media_file(media.id, **updates)
+        if updated is not None and target_library is not None:
+            await refresh_external_subtitle(repo, updated, target_library)
         return
     if occupant.id is None:
         return
@@ -279,8 +294,8 @@ async def commit_organized_media_file(
     if occupant_updates:
         await repo.update_media_file(occupant.id, **occupant_updates)
     await repo.delete_media_file(media.id)
-    if library is not None:
-        await refresh_external_subtitle(repo, occupant, library)
+    if target_library is not None:
+        await refresh_external_subtitle(repo, occupant, target_library)
 
 
 async def _resolve_local(url: str, store: ResourceStore, client: WebClient) -> Path | None:

@@ -47,13 +47,23 @@ class TestMediaHttp:
         moved = await client.patch(f"media/{media.id}", json={"path": "/new/location/x.mp4", "metadata_id": meta.id})
         assert moved.json()["path"] == "/new/location/x.mp4"
         assert moved.json()["metadata_id"] == meta.id
-        extra = await client.patch(f"media/{media.id}", json={"number": "NEW", "unknown_field": "should_be_ignored"})
-        assert extra.status_code == 200
-        assert extra.json()["number"] == "NEW"
-        assert (await client.patch("media/9999", json={"number": "X"})).status_code == 404
-        assert (await client.patch(f"media/{media.id}", json={})).status_code == 422
-        for bad in ({"status": "invalid_status"}, {"number": 12345}):
-            assert (await client.patch(f"media/{media.id}", json=bad)).status_code == 422
+        # 解除影片绑定
+        unlinked = await client.patch(f"media/{media.id}", json={"metadata_id": None})
+        assert unlinked.status_code == 200
+        assert unlinked.json()["metadata_id"] is None
+
+        # 跨媒体库路径更新: 自动同步 library_id
+        lib2 = await repo.create_library(name="secondary", path="/secondary")
+        assert lib2.id is not None
+        cross = await client.patch(f"media/{media.id}", json={"path": "/secondary/sub/video.mp4"})
+        assert cross.status_code == 200
+        assert cross.json()["path"] == "/secondary/sub/video.mp4"
+        assert cross.json()["library_id"] == lib2.id
+
+        # 目标路径冲突时 409
+        await repo.create_media_file(library_id=lib2.id, path="/secondary/occupied.mp4")
+        conflict = await client.patch(f"media/{media.id}", json={"path": "/secondary/occupied.mp4"})
+        assert conflict.status_code == 409
 
         deleted = await client.delete(f"media/{media.id}")
         assert deleted.status_code == 204

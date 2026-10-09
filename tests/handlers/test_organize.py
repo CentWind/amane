@@ -1116,6 +1116,8 @@ async def test_reports_progress(repo: Repository, resource_store: ResourceStore,
         "inside_occupant",
         "outside_source_gone",
         "outside_source_kept",
+        "cross_library_migrate",
+        "cross_library_occupant",
     ],
 )
 async def test_commit_organized_media_file(repo: Repository, tmp_path: Path, case: str) -> None:
@@ -1176,6 +1178,56 @@ async def test_commit_organized_media_file(repo: Repository, tmp_path: Path, cas
         await commit_organized_media_file(repo, media, outside, lib_root)
         assert await repo.get_media_file(media.id) is None
         assert await repo.get_metadata(meta.id) is not None
+        return
+
+    if case == "cross_library_migrate":
+        lib2_root = tmp_path / "lib2"
+        lib2_root.mkdir()
+        lib2 = await repo.create_library(name="lib2", path=str(lib2_root), write_nfo=False)
+        assert lib2.id is not None
+        placed_lib2 = lib2_root / "Studio" / "NSFS-039.mp4"
+
+        src.write_bytes(b"v")
+        media = await repo.create_media_file(
+            lib.id, path=str(src), number="NSFS-039", status=MediaFileStatus.SCRAPED, metadata_id=meta.id
+        )
+        assert media.id is not None
+        await commit_organized_media_file(repo, media, placed_lib2, lib_root)
+        updated = await repo.get_media_file(media.id)
+        assert updated is not None
+        assert updated.path == str(placed_lib2)
+        assert updated.library_id == lib2.id
+        assert updated.metadata_id == meta.id
+        assert updated.status == MediaFileStatus.SCRAPED
+        return
+
+    if case == "cross_library_occupant":
+        lib2_root = tmp_path / "lib2"
+        lib2_root.mkdir()
+        lib2 = await repo.create_library(name="lib2", path=str(lib2_root), write_nfo=False)
+        assert lib2.id is not None
+        placed_lib2 = lib2_root / "Studio" / "NSFS-039.mp4"
+
+        src.write_bytes(b"v")
+        media = await repo.create_media_file(
+            lib.id,
+            path=str(src),
+            number="NSFS-039",
+            status=MediaFileStatus.SCRAPED,
+            metadata_id=meta.id,
+            oshash="xyz",
+        )
+        occupant = await repo.create_media_file(lib2.id, path=str(placed_lib2), number=None)
+        assert media.id is not None and occupant.id is not None
+        await commit_organized_media_file(repo, media, placed_lib2, lib_root)
+        assert await repo.get_media_file(media.id) is None
+        kept = await repo.get_media_file(occupant.id)
+        assert kept is not None
+        assert kept.library_id == lib2.id
+        assert kept.metadata_id == meta.id
+        assert kept.status == MediaFileStatus.SCRAPED
+        assert kept.oshash == "xyz"
+        assert kept.number == "NSFS-039"
         return
 
     src.write_bytes(b"v")

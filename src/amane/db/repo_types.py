@@ -265,7 +265,7 @@ class MetadataFields(TypedDict, total=False):
     raw: dict[str, dict[str, object]]
 
 
-class MediaFileUpdates(TypedDict, total=False):
+class MediaFileFields(TypedDict, total=False):
     path: str
     number: str | None
     oshash: str | None
@@ -275,6 +275,10 @@ class MediaFileUpdates(TypedDict, total=False):
     status: MediaFileStatus
     metadata_id: int | None
     has_external_subtitle: bool
+
+
+class MediaFileUpdates(MediaFileFields, total=False):
+    library_id: int
 
 
 class LibraryUpdates(TypedDict, total=False):

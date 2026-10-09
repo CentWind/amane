@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, cast
 
 import structlog
@@ -6,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Query, Response
 from ...db.models import MediaFileStatus, MediaSortField, SortOrder
 from ...parsing import DEFINITION_VALUES, ContentType, Mosaic
 from ...utils.model import to_resp
+from ...utils.path import is_descendant
 from ..deps import RepoDep
 from ..models import MediaFileResponse, MediaFileUpdateRequest, MediaListResponse
 
@@ -85,6 +87,15 @@ async def update_media(media_id: int, req: MediaFileUpdateRequest, repo: RepoDep
     updates = cast("MediaFileUpdates", req.model_dump(exclude_unset=True))
     if not updates:
         raise HTTPException(status_code=422, detail="没有需要修改的字段")
+    if "path" in updates:
+        occupant = await repo.get_media_file_by_path(updates["path"])
+        if occupant is not None and occupant.id != media_id:
+            raise HTTPException(status_code=409, detail=f"目标路径已被其他媒体文件占用: {updates['path']}")
+        new_path = Path(updates["path"])
+        for lib in await repo.list_libraries():
+            if lib.id is not None and is_descendant(new_path, Path(lib.path)):
+                updates["library_id"] = lib.id
+                break
     media = await repo.update_media_file(media_id, **updates)
     if media is None:
         raise HTTPException(status_code=404, detail="媒体文件不存在")
