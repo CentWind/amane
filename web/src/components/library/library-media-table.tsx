@@ -12,13 +12,20 @@ import {
   type MantineBreakpoint,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconDots, IconFolderDown, IconForms, IconRefresh, IconTrash } from "@tabler/icons-react";
+import {
+  IconDots,
+  IconFolderDown,
+  IconForms,
+  IconPencil,
+  IconRefresh,
+  IconTrash,
+} from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listMediaQueryKey } from "@/client/@tanstack/react-query.gen";
-import { deleteMedia, submitTask } from "@/client/sdk.gen";
+import { deleteMedia, submitTask, updateMedia } from "@/client/sdk.gen";
 import type {
   ContentType,
   MediaFileResponse,
@@ -33,6 +40,7 @@ import { SortableTh } from "@/components/common/sortable-th";
 import { SelectionBar } from "@/components/common/selection-bar";
 import { ScrapeOverrideDialog } from "./scrape-override-dialog";
 import { MediaDeleteDialog } from "./media-delete-dialog";
+import { MediaEditDialog, type MediaEditFormValues } from "./media-edit-dialog";
 import { useIdSelection } from "@/hooks/use-id-selection";
 import { extractErrorMessage } from "@/lib/api-error";
 import { confirm } from "@/lib/confirm";
@@ -170,6 +178,8 @@ export function LibraryMediaTable({
   );
   const [overrideTarget, setOverrideTarget] = useState<MediaFileResponse | null>(null);
   const [overrideSaving, setOverrideSaving] = useState(false);
+  const [editTarget, setEditTarget] = useState<MediaFileResponse | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
 
   const invalidate = () => void queryClient.invalidateQueries({ queryKey: listMediaQueryKey() });
 
@@ -271,6 +281,36 @@ export function LibraryMediaTable({
       });
     } finally {
       setOverrideSaving(false);
+    }
+  }
+
+  async function handleEditMedia(values: MediaEditFormValues) {
+    if (editTarget == null) return;
+    setEditSaving(true);
+    try {
+      await updateMedia({
+        path: { media_id: editTarget.id },
+        body: {
+          path: values.path,
+          number: values.number || null,
+          metadata_id: values.metadata_id,
+          status: values.status,
+        },
+        throwOnError: true,
+      });
+      notifications.show({
+        message: t("editMedia.success"),
+        color: "blue",
+      });
+      setEditTarget(null);
+      invalidate();
+    } catch (err) {
+      notifications.show({
+        message: extractErrorMessage(err, t("common:toast.operationFailed")),
+        color: "red",
+      });
+    } finally {
+      setEditSaving(false);
     }
   }
 
@@ -504,6 +544,13 @@ export function LibraryMediaTable({
                     >
                       <IconForms size={16} />
                     </HintedActionIcon>
+                    <HintedActionIcon
+                      variant="subtle"
+                      label={t("actions.editMedia")}
+                      onClick={() => setEditTarget(item)}
+                    >
+                      <IconPencil size={16} />
+                    </HintedActionIcon>
                     <Menu position="bottom-end" withinPortal>
                       <Menu.Target>
                         <ActionIcon
@@ -552,6 +599,12 @@ export function LibraryMediaTable({
                         >
                           {t("actions.scrapeWithNumber")}
                         </Menu.Item>
+                        <Menu.Item
+                          leftSection={<IconPencil size={14} />}
+                          onClick={() => setEditTarget(item)}
+                        >
+                          {t("actions.editMedia")}
+                        </Menu.Item>
                         <Menu.Divider />
                         <DeleteMenuItems
                           onDeleteRecord={() => void handleDeleteOne(item.id)}
@@ -591,6 +644,14 @@ export function LibraryMediaTable({
           clear();
           invalidate();
         }}
+      />
+      <MediaEditDialog
+        target={editTarget}
+        saving={editSaving}
+        onClose={() => {
+          if (!editSaving) setEditTarget(null);
+        }}
+        onSubmit={(values) => void handleEditMedia(values)}
       />
     </ListToolbar>
   );
