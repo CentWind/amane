@@ -92,10 +92,12 @@ async def update_media(media_id: int, req: MediaFileUpdateRequest, repo: RepoDep
         if occupant is not None and occupant.id != media_id:
             raise HTTPException(status_code=409, detail=f"目标路径已被其他媒体文件占用: {updates['path']}")
         new_path = Path(updates["path"])
-        for lib in await repo.list_libraries():
-            if lib.id is not None and is_descendant(new_path, Path(lib.path)):
-                updates["library_id"] = lib.id
-                break
+        matching_libs = [
+            lib for lib in await repo.list_libraries() if lib.id is not None and is_descendant(new_path, Path(lib.path))
+        ]
+        target_lib = max(matching_libs, key=lambda item: len(Path(item.path).parts), default=None)
+        if target_lib is not None and target_lib.id is not None:
+            updates["library_id"] = target_lib.id
     media = await repo.update_media_file(media_id, **updates)
     if media is None:
         raise HTTPException(status_code=404, detail="媒体文件不存在")
