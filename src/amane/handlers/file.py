@@ -257,20 +257,20 @@ async def commit_organized_media_file(
         return
     library = await repo.get_library(media.library_id)
     target_library = library
-    target_library_id = media.library_id
     if not is_descendant(placed, library_root):
-        target_lib = None
-        for lib in await repo.list_libraries():
-            if lib.id is not None and is_descendant(placed, Path(lib.path)):
-                target_lib = lib
-                break
-        if target_lib is not None:
-            target_library = target_lib
-            target_library_id = target_lib.id
-        else:
-            if await existing_disk_path(Path(media.path), follow_symlinks=False) is None:
-                await repo.delete_media_file(media.id)
+        if await existing_disk_path(Path(media.path), follow_symlinks=False) is not None:
             return
+        matching_libs = [
+            lib for lib in await repo.list_libraries() if lib.id is not None and is_descendant(placed, Path(lib.path))
+        ]
+        target_lib = max(matching_libs, key=lambda item: len(Path(item.path).parts), default=None)
+        if target_lib is None or target_lib.id is None:
+            await repo.delete_media_file(media.id)
+            return
+        target_library = target_lib
+        target_library_id = target_lib.id
+    else:
+        target_library_id = media.library_id
 
     occupant = await repo.get_media_file_by_path(str(placed))
     if occupant is None or occupant.id == media.id:
@@ -281,8 +281,10 @@ async def commit_organized_media_file(
         if updated is not None and target_library is not None:
             await refresh_external_subtitle(repo, updated, target_library)
         return
+
     if occupant.id is None:
         return
+
     occupant_updates: MediaFileUpdates = {}
     if occupant.metadata_id is None and media.metadata_id is not None:
         occupant_updates["metadata_id"] = media.metadata_id

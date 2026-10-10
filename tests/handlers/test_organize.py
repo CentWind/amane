@@ -1186,8 +1186,9 @@ async def test_commit_organized_media_file(repo: Repository, tmp_path: Path, cas
         lib2 = await repo.create_library(name="lib2", path=str(lib2_root), write_nfo=False)
         assert lib2.id is not None
         placed_lib2 = lib2_root / "Studio" / "NSFS-039.mp4"
+        placed_lib2.parent.mkdir(parents=True)
+        placed_lib2.write_bytes(b"v")
 
-        src.write_bytes(b"v")
         media = await repo.create_media_file(
             lib.id, path=str(src), number="NSFS-039", status=MediaFileStatus.SCRAPED, metadata_id=meta.id
         )
@@ -1207,8 +1208,9 @@ async def test_commit_organized_media_file(repo: Repository, tmp_path: Path, cas
         lib2 = await repo.create_library(name="lib2", path=str(lib2_root), write_nfo=False)
         assert lib2.id is not None
         placed_lib2 = lib2_root / "Studio" / "NSFS-039.mp4"
+        placed_lib2.parent.mkdir(parents=True)
+        placed_lib2.write_bytes(b"v")
 
-        src.write_bytes(b"v")
         media = await repo.create_media_file(
             lib.id,
             path=str(src),
