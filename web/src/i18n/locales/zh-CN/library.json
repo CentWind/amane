@@ -34,8 +34,23 @@
   "actions": {
     "scrape": "刮削",
     "scrapeWithNumber": "指定番号刮削",
+    "editMedia": "编辑媒体文件",
     "batchScrape": "批量刮削",
     "batchOrganize": "批量整理"
+  },
+  "editMedia": {
+    "title": "编辑媒体文件",
+    "path": "文件路径",
+    "pathHint": "若路径落在其他已知媒体库下, 将自动迁移所属媒体库",
+    "pathPlaceholder": "/path/to/media/file.mp4",
+    "pathRequired": "文件路径不能为空",
+    "number": "识别番号",
+    "numberPlaceholder": "例如 MIDV-123",
+    "metadataId": "关联影片 ID",
+    "metadataIdHint": "清除数值即可解除与影片的关联绑定",
+    "status": "文件状态",
+    "submit": "保存修改",
+    "success": "媒体文件信息已更新"
   },
   "scrapeOverride": {
     "title": "指定番号刮削",

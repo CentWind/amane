@@ -24,6 +24,7 @@ import {
   IconExternalLink,
   IconFolders,
   IconGitMerge,
+  IconLinkOff,
   IconLock,
   IconLockOpen,
   IconPencil,
@@ -53,8 +54,9 @@ import {
   submitTaskMutation,
   updateMetadataMutation,
 } from "@/client/@tanstack/react-query.gen";
-import { getMetadataSchema } from "@/client/sdk.gen";
+import { getMetadataSchema, updateMedia } from "@/client/sdk.gen";
 import type { MetadataField, MetadataResponse } from "@/client/types.gen";
+import { HintedActionIcon } from "@/components/common/hinted-action-icon";
 import { FacetBadge } from "@/components/media/facet-badge";
 import { LockChip, LockToggle, type LockProps } from "@/components/media/field-lock";
 import { UserTagActions } from "@/components/media/user-tag-add";
@@ -342,6 +344,30 @@ function TitleDetailPage() {
       });
       notifications.show({ message: t("common:toast.userTagDetached"), color: "blue" });
       invalidateDetail();
+    } catch (err) {
+      notifications.show({
+        message: extractErrorMessage(err, t("common:toast.operationFailed")),
+        color: "red",
+      });
+    }
+  }
+
+  async function handleUnlink(fileId: number) {
+    const ok = await confirm({
+      title: t("detail.confirmUnlinkTitle"),
+      message: t("detail.confirmUnlinkDesc"),
+      confirmLabel: t("detail.unlinkFile"),
+    });
+    if (!ok) return;
+    try {
+      await updateMedia({
+        path: { media_id: fileId },
+        body: { metadata_id: null, status: "pending" },
+        throwOnError: true,
+      });
+      notifications.show({ message: t("detail.unlinkSuccess"), color: "blue" });
+      invalidateDetail();
+      void queryClient.invalidateQueries({ queryKey: listMetadataQueryKey() });
     } catch (err) {
       notifications.show({
         message: extractErrorMessage(err, t("common:toast.operationFailed")),
@@ -866,21 +892,32 @@ function TitleDetailPage() {
                   <Badge size="sm" variant="light">
                     {f.status}
                   </Badge>
-                  {/* 逐文件的删除只在媒体库详情页做: 这里只把人送过去, 并按该文件的路径过滤列表. */}
-                  <ActionIcon
-                    variant="subtle"
-                    size="sm"
-                    aria-label={t("detail.openInLibrary")}
-                    onClick={() =>
-                      void navigate({
-                        to: "/libraries/$libraryId",
-                        params: { libraryId: String(f.library_id) },
-                        search: { q: f.path },
-                      })
-                    }
-                  >
-                    <IconFolders size={16} />
-                  </ActionIcon>
+                  <Group gap={4} wrap="nowrap">
+                    {/* 逐文件的删除只在媒体库详情页做: 这里只把人送过去, 并按该文件的路径过滤列表. */}
+                    <ActionIcon
+                      variant="subtle"
+                      size="sm"
+                      aria-label={t("detail.openInLibrary")}
+                      onClick={() =>
+                        void navigate({
+                          to: "/libraries/$libraryId",
+                          params: { libraryId: String(f.library_id) },
+                          search: { q: f.path },
+                        })
+                      }
+                    >
+                      <IconFolders size={16} />
+                    </ActionIcon>
+                    <HintedActionIcon
+                      variant="subtle"
+                      size="sm"
+                      color="orange"
+                      label={t("detail.unlinkFile")}
+                      onClick={() => void handleUnlink(f.id)}
+                    >
+                      <IconLinkOff size={16} />
+                    </HintedActionIcon>
+                  </Group>
                 </Group>
               ))}
             </Stack>

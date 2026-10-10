@@ -34,8 +34,23 @@
   "actions": {
     "scrape": "Scrape",
     "scrapeWithNumber": "Scrape with number",
+    "editMedia": "Edit Media File",
     "batchScrape": "Batch Scrape",
     "batchOrganize": "Batch Organize"
+  },
+  "editMedia": {
+    "title": "Edit Media File",
+    "path": "File Path",
+    "pathHint": "If the path belongs to another known library, ownership will migrate automatically",
+    "pathPlaceholder": "/path/to/media/file.mp4",
+    "pathRequired": "File path cannot be empty",
+    "number": "Number",
+    "numberPlaceholder": "e.g. MIDV-123",
+    "metadataId": "Metadata ID",
+    "metadataIdHint": "Clear value to unlink from the film",
+    "status": "Status",
+    "submit": "Save Changes",
+    "success": "Media file updated successfully"
   },
   "scrapeOverride": {
     "title": "Scrape with number",
