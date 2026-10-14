@@ -445,7 +445,7 @@ async def _make_feed(repo: Repository) -> int:
 
 # (TypedDict, 建种子记录, repo update 方法名, 跳过的外键列, 跳过的语义校验列)
 _ROUNDTRIP = [
-    (MediaFileUpdates, _make_media, "update_media_file", frozenset({"metadata_id"}), frozenset()),
+    (MediaFileUpdates, _make_media, "update_media_file", frozenset({"metadata_id", "library_id"}), frozenset()),
     (
         LibraryUpdates,
         _make_library,
